@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\Settings;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,7 @@ Route::middleware(['auth'])
 
         Route::resource('companies', CompanyController::class);
         Route::resource('accounts', AccountController::class);
+        Route::resource('transaction-categories', TransactionCategoryController::class);
 
     });
 
