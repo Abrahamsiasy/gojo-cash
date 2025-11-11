@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ config('app.name') }}</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
     <script>
         window.setAppearance = function(appearance) {
             let setDark = () => document.documentElement.classList.add('dark')
@@ -32,6 +34,22 @@
             }
         }
         window.setAppearance(window.localStorage.getItem('appearance') || 'system')
+
+
+        //delete moddal script enter-start
+
+        document.addEventListener('open-modal', event => {
+            const modalId = event.detail.id;
+            const modal = document.getElementById(modalId);
+            if (modal && modal.__x) modal.__x.$data.open = true;
+        });
+
+        document.addEventListener('modal-confirm', event => {
+            const modalId = event.detail.id;
+            const form = document.querySelector(`form[data-modal="${modalId}"]`);
+            if (form) form.submit();
+        });
+        // delete modeal script end 
     </script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
