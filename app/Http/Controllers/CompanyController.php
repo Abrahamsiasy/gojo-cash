@@ -43,6 +43,8 @@ class CompanyController extends Controller
             $position = ($companies->firstItem() ?? 1) + $index;
 
             return [
+                'id' => $company->id,
+                'name' => $company->name,
                 'cells' => [
                     $position,
                     $company->name,

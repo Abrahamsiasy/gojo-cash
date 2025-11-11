@@ -43,7 +43,24 @@ All screens live inside `<x-layouts.app>` which injects Alpine, sidebar layout, 
 ### Form Inputs
 - Text/date input: `resources/views/components/forms/input.blade.php`
 - Checkbox: `resources/views/components/forms/checkbox.blade.php`
-- Both accept labels, error output, and merge extra classes. Checkbox ensures unchecked value posts `0`.
+- Textarea: `resources/views/components/forms/textarea.blade.php`
+- Select (Select2): `resources/views/components/forms/select.blade.php`
+- All inputs accept labels, merge extra classes, and surface validation errors beside the field.
+- Checkbox ensures unchecked value posts `0`.
+- The textarea is a simple wrapper with matching styling and configurable row count.
+
+#### Select Component Internals
+- **Blade View**: `resources/views/components/forms/select.blade.php`.
+- Accepts:
+  - `options` as `['value' => 'Label']` or `['value' => ['label' => 'Label']]`.
+  - `selected`, `multiple`, `placeholder`, `allowClear`, and standard Blade attribute merging.
+- Generates a unique ID per instance so the label `for` attribute works even when no ID is passed.
+- Resolves selected value(s) from `old()` data first, then the provided `selected`.
+- Marks placeholder as an empty `<option>` which Select2 treats as “no value”.
+- Emits a `<select>` with `js-select2-component` class.
+- On first render (`@once`), pushes Select2 CSS/JS assets plus lightweight styling overrides into the layout stacks.
+- Adds a small helper script (`initSelect2Component`) that initializes Select2 on all `.js-select2-component` elements, guarding against double-initialisation and allowing use after Turbo/Alpine navigation.
+- Layout (`x-layouts.app`) now includes `@stack('styles')` inside `<head>` and `@stack('scripts')` before closing `<body>`, so the component can inject CDN links without manual updates per page.
 
 ### Alert (`<x-alert>`)
 - `resources/views/components/alert.blade.php`
@@ -117,7 +134,7 @@ $request->validate([
 3. **Routes**: register resource routes in `routes/web.php`.
 4. **Views**:
    - Duplicate `create.blade.php`, `edit.blade.php`, `index.blade.php`, and adjust labels/fields.
-   - Use the shared components (`<x-table>`, `<x-modal>`, `<x-button>`, `<x-forms.*>`, `<x-alert>`).
+   - Use the shared components (`<x-table>`, `<x-modal>`, `<x-button>`, `<x-forms.input>`, `<x-forms.select>`, `<x-forms.textarea>`, `<x-forms.checkbox>`, `<x-alert>`).
 5. **Table Configuration**: in `index`, build `$headers` and `$rows` with action URLs and modal IDs.
 6. **Modal IDs**: use meaningful prefixes (e.g. `delete-user-{{ $row['id'] }}`) to avoid collisions.
 7. **Flash Messages**: always redirect with `->with('success', __('...'))` so `<x-alert>` renders automatically.

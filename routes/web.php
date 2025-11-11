@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Settings;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,7 @@ Route::middleware(['auth'])
         Route::get('settings/appearance', [Settings\AppearanceController::class, 'edit'])->name('settings.appearance.edit');
 
         Route::resource('companies', CompanyController::class);
+        Route::resource('accounts', AccountController::class);
 
     });
 
