@@ -1,11 +1,18 @@
 <x-layouts.app>
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            {{ __('Edit Company') }}
-        </h1>
-        <p class="mt-1 text-gray-600 dark:text-gray-400">
-            {{ __('Update the company details and status.') }}
-        </p>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                {{ __('Edit Company') }}
+            </h1>
+            <p class="mt-1 text-gray-600 dark:text-gray-400">
+                {{ __('Update the company details and status.') }}
+            </p>
+        </div>
+
+        <a href="{{ route('companies.index') }}"
+            class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+            ← {{ __('Back to companies') }}
+        </a>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">

@@ -1,15 +1,18 @@
 <?php
 
-use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\TransactionCategoryController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Settings;
+use App\Http\Controllers\TransactionCategoryController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'dashboard')
-    ->prefix('admin')
-    ->middleware(['auth', 'verified'])
+Route::view('/', 'home')
     ->name('home');
+
+Route::get('home', function () {
+    return redirect()->route('dashboard');
+})->middleware(['auth', 'verified']);
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
@@ -28,6 +31,7 @@ Route::middleware(['auth'])
         Route::resource('companies', CompanyController::class);
         Route::resource('accounts', AccountController::class);
         Route::resource('transaction-categories', TransactionCategoryController::class);
+        Route::resource('transactions', TransactionController::class);
 
     });
 

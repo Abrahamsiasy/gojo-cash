@@ -6,20 +6,24 @@
                     <nav class="flex-1 overflow-y-auto custom-scrollbar py-4">
                         <ul class="space-y-1 px-2">
                             <!-- Dashboard -->
-                            <x-layouts.sidebar-link href="{{ route('dashboard') }}" icon='fas-house'
+                            <x-layouts.sidebar-link href="{{ route('dashboard') }}" icon='fas-gauge'
                                 :active="request()->routeIs('dashboard*')">Dashboard</x-layouts.sidebar-link>
                             <!-- companies -->
-                            <x-layouts.sidebar-link href="{{ route('companies.index') }}" icon='fas-house'
+                            <x-layouts.sidebar-link href="{{ route('companies.index') }}" icon='fas-building'
                                 :active="request()->routeIs('admin/companies*')">Companies</x-layouts.sidebar-link>
 
                                  <!-- accounts -->
-                            <x-layouts.sidebar-link href="{{ route('accounts.index') }}" icon='fas-house'
+                            <x-layouts.sidebar-link href="{{ route('accounts.index') }}" icon='fas-wallet'
                             :active="request()->routeIs('admin/accounts*')">Accounts</x-layouts.sidebar-link>
 
                             <!-- accounts -->
-                            <x-layouts.sidebar-link href="{{ route('transaction-categories.index') }}" icon='fas-house'
+                            <x-layouts.sidebar-link href="{{ route('transaction-categories.index') }}" icon='fas-tags'
                             :active="request()->routeIs('admin/transaction-categories*')">Transaction Categories</x-layouts.sidebar-link>
 
+
+                            <!-- accounts -->
+                            <x-layouts.sidebar-link href="{{ route('transactions.index') }}" icon='fas-arrows-rotate'
+                            :active="request()->routeIs('admin/transactions*')">Transactions</x-layouts.sidebar-link>
 
 
                             <!-- Companies Example two level -->

@@ -1,9 +1,16 @@
 <x-layouts.app>
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ __('Add New Company') }}</h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-1">
-            {{ __('Create a componey') }}
-        </p>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ __('Add New Company') }}</h1>
+            <p class="mt-1 text-gray-600 dark:text-gray-400">
+                {{ __('Create a company') }}
+            </p>
+        </div>
+
+        <a href="{{ route('companies.index') }}"
+            class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+            ← {{ __('Back to companies') }}
+        </a>
     </div>
     <div class="md:grid-cols-2 gap-4">
         

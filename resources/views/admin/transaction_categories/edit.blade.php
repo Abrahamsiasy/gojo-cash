@@ -1,11 +1,18 @@
 <x-layouts.app>
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            {{ __('Edit Transaction Category') }}
-        </h1>
-        <p class="mt-1 text-gray-600 dark:text-gray-400">
-            {{ __('Update the transaction category details.') }}
-        </p>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                {{ __('Edit Transaction Category') }}
+            </h1>
+            <p class="mt-1 text-gray-600 dark:text-gray-400">
+                {{ __('Update the transaction category details.') }}
+            </p>
+        </div>
+
+        <a href="{{ route('transaction-categories.index') }}"
+            class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+            ← {{ __('Back to transaction categories') }}
+        </a>
     </div>
 
     <div class="grid grid-cols-1 gap-4">
