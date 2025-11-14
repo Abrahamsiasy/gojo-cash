@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Models\Bank;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -93,6 +94,7 @@ class AccountController extends Controller
     {
         // Companies: key = id, value = name
         $companies = Company::orderBy('name')->pluck('name', 'id')->toArray();
+        $banks = Bank::orderBy('name')->pluck('name', 'id')->toArray();
 
         // Account types: key = enum value, value = human-readable name
         $accountTypeOptions = collect(AccountType::cases())
@@ -101,7 +103,7 @@ class AccountController extends Controller
             ])
             ->toArray();
 
-        return view('admin.accounts.create', compact('companies', 'accountTypeOptions'));
+        return view('admin.accounts.create', compact('companies', 'accountTypeOptions', 'banks'));
     }
 
     /**
