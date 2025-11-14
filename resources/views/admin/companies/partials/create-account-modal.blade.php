@@ -75,13 +75,15 @@
                     required
                 />
 
-                <x-forms.input
+                <x-forms.select
                     label="{{ __('Bank Name') }}"
-                    name="bank_name"
-                    placeholder="{{ __('Enter bank name') }}"
+                    name="bank_id"
+                    :options="$banks"
+                    placeholder="{{ __('Select Bank') }}"
                     class="w-full"
                     required
                 />
+
 
                 <x-forms.input
                     label="{{ __('Balance') }}"

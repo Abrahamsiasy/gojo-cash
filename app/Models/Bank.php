@@ -12,4 +12,9 @@ class Bank extends Model
         'is_default',
         'status'
     ];
+
+    public function accounts()
+    {
+        return $this->hasMany(Account::class);
+    }
 }

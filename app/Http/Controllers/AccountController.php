@@ -40,7 +40,7 @@ class AccountController extends Controller
             __('Account Number'),
             __('Componay'),
             __('Type'),
-            __('Bank Name'),
+            __('Bank'),
             __('Balance'),
             __('Active'),
             __('Created At'),
@@ -58,7 +58,7 @@ class AccountController extends Controller
                     $account->account_number ?? __('—'),
                     $account->company->name ?? __('—'),
                     $account->account_type?->value ?? __('—'), // Enum value
-                    $account->bank_name ?? __('—'),
+                    $account->bank->name ?? __('—'),
                     number_format((float) $account->balance, 2),
                     $account->is_active ? __('Yes') : __('No'),
                     $account->created_at?->translatedFormat('M j, Y'),
@@ -116,7 +116,7 @@ class AccountController extends Controller
             'account_number' => ['required', 'string', 'max:255'],
             'company_id' => ['required', 'exists:companies,id'],
             'account_type' => ['required', 'string', 'max:255'],
-            'bank_name' => ['required', 'string', 'max:255'],
+            'bank_id' => ['required', 'string', 'max:255'],
             'balance' => ['required', 'numeric', 'min:0'],
             'opening_balance' => ['required', 'numeric', 'min:0'],
         ]);
