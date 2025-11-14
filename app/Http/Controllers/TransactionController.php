@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -37,6 +38,7 @@ class TransactionController extends Controller
 
         $headers = [
             '#',
+            __('Transactino Id'),
             __('Company'),
             __('Account'),
             __('Type'),
@@ -56,6 +58,7 @@ class TransactionController extends Controller
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
                 'cells' => [
                     $position,
+                    $transaction->transaction_id ?? __('—'),
                     $transaction->company->name ?? __('—'),
                     $transaction->account->name ?? __('—'),
                     ucfirst($transaction->type),
@@ -110,8 +113,15 @@ class TransactionController extends Controller
             })
             ->toArray();
 
-        // Transaction categories: key = id, value = name
-        $categories = TransactionCategory::orderBy('name')->pluck('name', 'id')->toArray();
+        // Transaction categories: key = id, value = "name->type"
+        $categories = TransactionCategory::orderBy('name')
+            ->get()
+            ->mapWithKeys(static function (TransactionCategory $category): array {
+                return [
+                    $category->id => $category->name.' ('.$category->type.')',
+                ];
+            })
+            ->toArray();
 
         // Transaction types: enum values (income, expense, transfer)
         $transactionTypes = collect(['income', 'expense', 'transfer'])
@@ -139,110 +149,56 @@ class TransactionController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validate input safely
-        dd($request->all());
+
         $validated = $request->validate([
+            'company_id' => ['required', 'exists:companies,id'],
             'account_id' => ['required', 'exists:accounts,id'],
-            'transaction_category_id' => ['required', 'exists:transaction_categories,id'],
+            'transaction_category_id' => ['nullable', 'exists:transaction_categories,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'type' => ['required', 'in:income,expense,transfer'],
+            'is_transfer' => ['nullable', 'boolean'], // checkbox for transfer
             'related_account_id' => ['nullable', 'exists:accounts,id', 'different:account_id'],
             'description' => ['nullable', 'string', 'max:500'],
             'date' => ['nullable', 'date'],
+            'transaction_id' => ['nullable', 'integer'],
         ]);
-        // get transaction_category_id from
 
-        // Normalize optional fields
         $validated['date'] = $validated['date'] ?? now();
+        $companyId = $validated['company_id'];
 
-        // Fetch base models
-        $account = Account::lockForUpdate()->findOrFail($validated['account_id']); // lock to prevent race conditions
-        $category = TransactionCategory::findOrFail($validated['transaction_category_id']);
+        $account = Account::lockForUpdate()->findOrFail($validated['account_id']);
 
-        // Optional: start a DB transaction for safety
         DB::beginTransaction();
-        dd($validated);
 
         try {
-            // 2. Expense — Money going out
-            if ($validated['type'] === 'expense') {
-                if ($account->balance < $validated['amount']) {
-                    return back()->withErrors([
-                        'amount' => __('Insufficient funds. Available balance: :balance', [
-                            'balance' => number_format($account->balance, 2),
-                        ]),
-                    ])->withInput();
-                }
+            // If it's a transfer
+            if (! empty($validated['is_transfer'])) {
+                $this->handleTransfer($account, 'transfer', $validated, $companyId);
+            } else {
+                // Otherwise, must have a category
+                $category = TransactionCategory::findOrFail($validated['transaction_category_id']);
+                $type = $category->type; // infer from category (income/expense)
 
-                $account->balance -= $validated['amount'];
-                $account->save();
-
-                Transaction::create([
-                    'account_id' => $account->id,
-                    'transaction_category_id' => $category->id,
-                    'amount' => $validated['amount'],
-                    'type' => 'expense',
-                    'description' => $validated['description'] ?? null,
-                    'date' => $validated['date'],
-                ]);
-            }
-
-            // 3. Income — Money coming in
-            elseif ($validated['type'] === 'income') {
-                $account->balance += $validated['amount'];
-                $account->save();
-
-                Transaction::create([
-                    'account_id' => $account->id,
-                    'transaction_category_id' => $category->id,
-                    'amount' => $validated['amount'],
-                    'type' => 'income',
-                    'description' => $validated['description'] ?? null,
-                    'date' => $validated['date'],
-                ]);
-            }
-
-            // 4. Transfer — Move between two accounts
-            elseif ($validated['type'] === 'transfer') {
-                if (empty($validated['related_account_id'])) {
-                    return back()->withErrors([
-                        'related_account_id' => __('Please select a destination account for the transfer.'),
-                    ])->withInput();
-                }
-
-                $target = Account::lockForUpdate()->findOrFail($validated['related_account_id']);
-
-                if ($account->balance < $validated['amount']) {
-                    return back()->withErrors([
-                        'amount' => __('Insufficient funds in source account. Available balance: :balance', [
-                            'balance' => number_format($account->balance, 2),
-                        ]),
-                    ])->withInput();
-                }
-
-                // Deduct from source
-                $account->balance -= $validated['amount'];
-                $account->save();
-
-                // Add to destination
-                $target->balance += $validated['amount'];
-                $target->save();
-
-                // Log both sides of the transfer
-                Transaction::create([
-                    'account_id' => $account->id,
-                    'related_account_id' => $target->id,
-                    'transaction_category_id' => $category->id,
-                    'amount' => $validated['amount'],
-                    'type' => 'transfer',
-                    'description' => $validated['description'] ?? "Transfer to {$target->name}",
-                    'date' => $validated['date'],
-                ]);
+                match ($type) {
+                    'income' => $this->handleIncome($account, $category, $validated, $companyId),
+                    'expense' => $this->handleExpense($account, $category, $validated, $companyId),
+                };
             }
 
             DB::commit();
 
-            // 5. Success message
+            // Redirect back to account page if coming from account show page
+            if ($request->boolean('from_account')) {
+                return redirect()
+                    ->route('accounts.show', $validated['account_id'])
+                    ->with('success', __('Transaction recorded successfully.'));
+            }
+
+            if ($request->boolean('from_company')) {
+                return redirect()
+                    ->route('companies.show', $companyId)
+                    ->with('success', __('Transaction recorded successfully.'));
+            }
+
             return redirect()
                 ->route('transactions.index')
                 ->with('success', __('Transaction recorded successfully.'));
@@ -255,6 +211,105 @@ class TransactionController extends Controller
                 'error' => __('An unexpected error occurred while saving the transaction.'),
             ])->withInput();
         }
+    }
+
+    protected function handleIncome($account, $category, $data, $companyId)
+    {
+        $previousBalance = $account->balance;
+        $newBalance = $previousBalance + $data['amount'];
+
+        $account->update(['balance' => $newBalance]);
+
+        Transaction::create([
+            'company_id' => $companyId,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'type' => 'income',
+            'amount' => $data['amount'],
+            'previous_balance' => $previousBalance,
+            'new_balance' => $newBalance,
+            'description' => $data['description'] ?? null,
+            'date' => $data['date'],
+            'created_by' => Auth::id(),
+        ]);
+    }
+
+    protected function handleExpense($account, $category, $data, $companyId)
+    {
+        if ($account->balance < $data['amount']) {
+            throw new \Exception(__('Insufficient funds in :account.', ['account' => $account->name]));
+        }
+
+        $previousBalance = $account->balance;
+        $newBalance = $previousBalance - $data['amount'];
+        $account->update(['balance' => $newBalance]);
+
+        Transaction::create([
+            'company_id' => $companyId,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'type' => 'expense',
+            'amount' => $data['amount'],
+            'previous_balance' => $previousBalance,
+            'new_balance' => $newBalance,
+            'description' => $data['description'] ?? null,
+            'date' => $data['date'],
+            'created_by' => Auth::id(),
+        ]);
+    }
+
+    protected function handleTransfer($sourceAccount, $category, $data, $companyId)
+    {
+        if (empty($data['related_account_id'])) {
+            throw new \Exception(__('Please select a destination account.'));
+        }
+
+        $destinationAccount = Account::lockForUpdate()->findOrFail($data['related_account_id']);
+
+        if ($sourceAccount->balance < $data['amount']) {
+            throw new \Exception(__('Insufficient funds in :account.', ['account' => $sourceAccount->name]));
+        }
+
+        // Deduct from source
+        $previousBalanceSource = $sourceAccount->balance;
+        $newBalanceSource = $previousBalanceSource - $data['amount'];
+        $sourceAccount->update(['balance' => $newBalanceSource]);
+
+        // Add to destination
+        $previousBalanceDest = $destinationAccount->balance;
+        $newBalanceDest = $previousBalanceDest + $data['amount'];
+        $destinationAccount->update(['balance' => $newBalanceDest]);
+        // Log transfer (source)
+        Transaction::create([
+            'company_id' => $companyId,
+            'account_id' => $sourceAccount->id,
+            'related_account_id' => $destinationAccount->id,
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'type' => 'transfer',
+            'amount' => $data['amount'],
+            'previous_balance' => $previousBalanceSource,
+            'new_balance' => $newBalanceSource,
+            'description' => $data['description'] ?? "Transfer to {$destinationAccount->name}",
+            'date' => $data['date'],
+            'created_by' => Auth::id(),
+        ]);
+
+        // Log reciprocal transaction (destination)
+        Transaction::create([
+            'company_id' => $companyId,
+            'account_id' => $destinationAccount->id,
+            'related_account_id' => $sourceAccount->id,
+            'transaction_id' => $data['transaction_id'] ?? null,
+            'type' => 'income',
+            'amount' => $data['amount'],
+            'previous_balance' => $previousBalanceDest,
+            'new_balance' => $newBalanceDest,
+            'description' => $data['description'] ?? "Transfer from {$sourceAccount->name}",
+            'date' => $data['date'],
+            'created_by' => Auth::id(),
+        ]);
     }
 
     /**
@@ -286,6 +341,8 @@ class TransactionController extends Controller
      */
     public function destroy(Transaction $transaction)
     {
-        //
+        $transaction->delete();
+
+        return redirect()->route('transactions.index')->with('success', __('Transaction deleted successfully.'));
     }
 }

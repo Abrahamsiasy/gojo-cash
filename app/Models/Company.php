@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
     /** @use HasFactory<\Database\Factories\CompanyFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -26,5 +27,10 @@ class Company extends Model
             'trial_ends_at' => 'datetime',
             'status' => 'boolean',
         ];
+    }
+
+    public function accounts()
+    {
+        return $this->hasMany(Account::class);
     }
 }
