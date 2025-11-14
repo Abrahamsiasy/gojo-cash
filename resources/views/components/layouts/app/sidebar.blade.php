@@ -11,6 +11,9 @@
                             <!-- companies -->
                             <x-layouts.sidebar-link href="{{ route('companies.index') }}" icon='fas-building'
                                 :active="request()->routeIs('admin/companies*')">Companies</x-layouts.sidebar-link>
+                            <!-- companies -->
+                            <x-layouts.sidebar-link href="{{ route('banks.index') }}" icon='fas-house'
+                                :active="request()->routeIs('admin/banks*')">Banks</x-layouts.sidebar-link>
 
                                  <!-- accounts -->
                             <x-layouts.sidebar-link href="{{ route('accounts.index') }}" icon='fas-wallet'
