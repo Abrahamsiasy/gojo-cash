@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Models\Bank;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,7 @@ class AccountStoreTest extends TestCase
     {
         $user = User::factory()->create();
         $company = Company::factory()->create();
+        $bank = Bank::factory()->create();
 
         $response = $this
             ->actingAs($user)
@@ -25,7 +27,7 @@ class AccountStoreTest extends TestCase
                 'account_number' => 'ACCT-1001',
                 'company_id' => $company->id,
                 'account_type' => AccountType::Cash->value,
-                'bank_name' => 'Acme Bank',
+                'bank_id' => $bank->id,
                 'balance' => 5000,
                 'opening_balance' => 5000,
                 'description' => 'Primary operating account',
