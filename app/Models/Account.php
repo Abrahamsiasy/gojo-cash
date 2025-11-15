@@ -17,7 +17,7 @@ class Account extends Model
         'name',
         'account_number',
         'account_type',
-        'bank_name',
+        'bank_id',
         'balance',
         'opening_balance',
         'is_active',
@@ -35,5 +35,9 @@ class Account extends Model
     public function company()
     {
         return $this->belongsTo(Company::class);
+    }
+    public function bank()
+    {
+        return $this->belongsTo(Bank::class);
     }
 }

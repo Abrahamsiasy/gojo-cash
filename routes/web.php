@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\BankController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Settings;
 use App\Http\Controllers\TransactionCategoryController;
@@ -32,6 +33,7 @@ Route::middleware(['auth'])
         Route::resource('accounts', AccountController::class);
         Route::resource('transaction-categories', TransactionCategoryController::class);
         Route::resource('transactions', TransactionController::class);
+        Route::resource('banks', BankController::class);
 
     });
 

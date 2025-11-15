@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Models\Bank;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -112,10 +113,10 @@ class CompanyController extends Controller
      */
     public function show(Request $request, Company $company): View
     {
-        $company->loadCount('accounts');
+        $company->loadCount('accounts',);
 
         $search = $request->string('search');
-
+        $banks = Bank::pluck('name', 'id');
         $accounts = Account::query()
             ->where('company_id', $company->id)
             ->when($search->isNotEmpty(), static function ($query) use ($search) {
@@ -153,7 +154,7 @@ class CompanyController extends Controller
                     $account->name,
                     $account->account_number ?? __('—'),
                     $account->account_type?->value ?? __('—'),
-                    $account->bank_name ?? __('—'),
+                    $account->bank->name ?? __('—'),
                     number_format((float) $account->balance, 2),
                     $account->is_active ? __('Yes') : __('No'),
                     $account->created_at?->translatedFormat('M j, Y'),
@@ -241,6 +242,7 @@ class CompanyController extends Controller
             'transferAccounts' => $transferAccounts,
             'statuses' => $statuses,
             'accountTypeOptions' => $accountTypeOptions,
+            'banks' => $banks
         ]);
     }
 
