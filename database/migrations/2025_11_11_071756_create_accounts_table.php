@@ -17,7 +17,10 @@ return new class extends Migration
             $table->string('name');
             $table->string('account_number')->nullable();
             $table->enum('account_type', ['cash', 'bank'])->default('bank');
-            $table->string('bank_name')->nullable();
+            $table->foreignId('bank_id')
+                ->nullable()
+                ->constrained('banks')
+                ->cascadeOnDelete();
             $table->decimal('balance', 15, 2)->default(0);
             $table->decimal('opening_balance', 15, 2)->default(0);
             $table->boolean('is_active')->default(true);
