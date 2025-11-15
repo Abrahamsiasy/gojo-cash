@@ -35,4 +35,6 @@ Route::middleware(['auth'])
 
     });
 
+require __DIR__.'/telegram.php';
+
 require __DIR__.'/auth.php';
