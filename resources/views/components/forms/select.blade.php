@@ -67,7 +67,7 @@
 
 @once
     @push('styles')
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+        <link rel="stylesheet" href="{{ asset('vendor/select2/select2.min.css') }}">
         <style>
             .select2-container .select2-selection--single,
             .select2-container .select2-selection--multiple {
@@ -104,8 +104,8 @@
     @endpush
 
     @push('scripts')
-        <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+        <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
         <script>
             function initSelect2Component(context) {
                 const $context = context ? $(context) : $(document);
