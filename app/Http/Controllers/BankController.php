@@ -2,75 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Bank;
 use App\Http\Requests\StoreBankRequest;
 use App\Http\Requests\UpdateBankRequest;
+use App\Models\Bank;
+use App\Services\BankService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class BankController extends Controller
 {
+    public function __construct(private BankService $bankService) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request): View
     {
         $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        $banks = Bank::query()
-            ->when($search->isNotEmpty(), static function ($query) use ($search) {
-                $term = $search->toString();
-
-                $query->where(static function ($query) use ($term) {
-                    $query->where('name', 'like', '%' . $term . '%');
-                });
-            })
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        $headers = [
-            '#',
-            __('Name'),
-            __('Status'),
-            __('Default'),
-            __('Created'),
-        ];
-
-        $rows = collect($banks->items())->map(function (Bank $bank, int $index) use ($banks) {
-            $position = ($banks->firstItem() ?? 1) + $index;
-
-            return [
-                'id' => $bank->id,
-                'name' => $bank->name,
-                'cells' => [
-                    $position,
-                    $bank->name,
-                    $bank->status ? __('Active') : __('Inactive'),
-                    $bank->is_default ? __('Yes') : __('No'),
-                    $bank->created_at?->translatedFormat('M j, Y'),
-                ],
-                'actions' => [
-                    'view' => [
-                        'url' => route('banks.show', $bank),
-                    ],
-                    'edit' => [
-                        'url' => route('banks.edit', $bank),
-                    ],
-                    'delete' => [
-                        'url' => route('banks.destroy', $bank),
-                        'confirm' => __('Are you sure you want to delete :bank?', ['bank' => $bank->name]),
-                    ],
-                ],
-            ];
-        });
-
-        return view('admin.banks.index', [
-            'headers' => $headers,
-            'rows' => $rows,
-            'banks' => $banks,
-            'search' => $search->toString(),
-        ]);
+        return view('admin.banks.index', $this->bankService->getIndexData($searchValue));
     }
 
     /**
@@ -86,9 +37,9 @@ class BankController extends Controller
      */
     public function store(StoreBankRequest $request)
     {
-        $validated = $request->validated();
-        Bank::create($validated);
-        return redirect()->route('banks.index')->with('success', 'Bank created successfully.');
+        $this->bankService->createBank($request->validated());
+
+        return redirect()->route('banks.index')->with('success', __('Bank created successfully.'));
     }
 
     /**
@@ -100,7 +51,6 @@ class BankController extends Controller
             'bank' => $bank,
         ]);
     }
-
 
     /**
      * Show the form for editing the specified resource.
@@ -117,9 +67,9 @@ class BankController extends Controller
      */
     public function update(UpdateBankRequest $request, Bank $bank)
     {
-        $validated = $request->validated();
-        $bank->update($validated);
-        return redirect()->route('banks.index')->with('success', 'Bank updated successfully.');
+        $this->bankService->updateBank($bank, $request->validated());
+
+        return redirect()->route('banks.index')->with('success', __('Bank updated successfully.'));
     }
 
     /**
@@ -127,8 +77,8 @@ class BankController extends Controller
      */
     public function destroy(Bank $bank)
     {
-        $bank->delete();
+        $this->bankService->deleteBank($bank);
 
-        return redirect()->route('banks.index')->with('success', 'Bank deleted successfully.');
+        return redirect()->route('banks.index')->with('success', __('Bank deleted successfully.'));
     }
 }

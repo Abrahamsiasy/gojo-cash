@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Models\Bank;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -20,13 +21,14 @@ class TransactionStoreTest extends TestCase
         $user = User::factory()->create();
 
         $company = Company::factory()->create();
+        $bank = Bank::factory()->create();
 
         $account = Account::factory()->create([
             'company_id' => $company->id,
             'name' => 'Operating Account',
             'account_number' => '123456789',
             'account_type' => AccountType::Cash,
-            'bank_name' => 'Test Bank',
+            'bank_id' => $bank->id,
             'balance' => 1000,
             'opening_balance' => 1000,
             'is_active' => true,
