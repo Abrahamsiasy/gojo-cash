@@ -204,6 +204,7 @@
                 </div>
             </section>
         </div>
+        {{-- @dd($transactionsByCategoryData); --}}
 
         {{-- Charts Section --}}
         <div class="grid gap-6 lg:grid-cols-2">
@@ -217,39 +218,148 @@
                 </div>
             </section>
 
-            {{-- Income vs Expense Chart --}}
+            {{-- Transactions by Category Chart --}}
             <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    {{ __('Income vs Expense (Last 12 Months)') }}
+                    {{ __('Transactions by Category (Last 12 Months)') }}
                 </h2>
                 <div class="relative" style="height: 300px; max-height: 300px;">
-                    <canvas id="incomeExpenseChart"></canvas>
+                    <canvas id="transactionsByCategoryChart"></canvas>
+                    <div id="transactionsByCategoryChartEmpty" class="hidden absolute inset-0 flex items-center justify-center">
+                        <p class="text-gray-500 dark:text-gray-400">{{ __('No transaction data available') }}</p>
+                    </div>
                 </div>
             </section>
         </div>
 
         {{-- Transactions Table Section --}}
         <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center ">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {{ __('Transactions') }}
                 </h2>
 
-
-
-                <x-table.search
-                    class="w-full sm:w-auto"
-                    :action="route('accounts.show', $account)"
-                    :value="$search"
-                    :placeholder="__('Search transactions...')"
-                />
-                <x-button
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <x-table.search
+                        class="w-full sm:w-auto"
+                        :action="route('accounts.show', $account)"
+                        :value="$search"
+                        :placeholder="__('Search transactions...')"
+                    />
+                    <x-button
                         buttonType="button"
                         class="w-full sm:w-auto"
                         @click="$dispatch('open-modal', { id: 'create-transaction-{{ $account->id }}' })"
                     >
                         {{ __('Add Transaction') }}
                     </x-button>
+                </div>
+            </div>
+
+            {{-- Filters Section --}}
+            <div x-data="{ filtersOpen: {{ !empty(array_filter($filters ?? [])) ? 'true' : 'false' }} }" class="mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <button
+                        @click="filtersOpen = !filtersOpen"
+                        class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                    >
+                        <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': filtersOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                        {{ __('Filters') }}
+                    </button>
+                    @if (!empty(array_filter($filters ?? [])))
+                        <a href="{{ route('accounts.show', $account) }}" class="text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                            {{ __('Clear Filters') }}
+                        </a>
+                    @endif
+                </div>
+
+                <div
+                    x-show="filtersOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0 transform scale-95"
+                    x-transition:enter-end="opacity-100 transform scale-100"
+                    x-transition:leave="transition ease-in duration-150"
+                    x-transition:leave-start="opacity-100 transform scale-100"
+                    x-transition:leave-end="opacity-0 transform scale-95"
+                    class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
+                >
+                    <form method="GET" action="{{ route('accounts.show', $account) }}" class="space-y-4">
+                        @if ($search)
+                            <input type="hidden" name="search" value="{{ $search }}">
+                        @endif
+
+                        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div>
+                                <x-forms.select
+                                    label="{{ __('Type') }}"
+                                    name="filter_type"
+                                    :options="$typeOptions"
+                                    :selected="$filters['type'] ?? null"
+                                    placeholder="{{ __('All Types') }}"
+                                />
+                            </div>
+
+                            <div>
+                                <x-forms.select
+                                    label="{{ __('Status') }}"
+                                    name="filter_status"
+                                    :options="$statuses"
+                                    :selected="$filters['status'] ?? null"
+                                    placeholder="{{ __('All Statuses') }}"
+                                />
+                            </div>
+
+                            <div>
+                                <x-forms.select
+                                    label="{{ __('Category') }}"
+                                    name="filter_category_id"
+                                    :options="$categories"
+                                    :selected="$filters['category_id'] ?? null"
+                                    placeholder="{{ __('All Categories') }}"
+                                />
+                            </div>
+
+                            <div>
+                                <x-forms.select
+                                    label="{{ __('Client') }}"
+                                    name="filter_client_id"
+                                    :options="$clients"
+                                    :selected="$filters['client_id'] ?? null"
+                                    placeholder="{{ __('All Clients') }}"
+                                />
+                            </div>
+
+                            <div>
+                                <x-forms.input
+                                    label="{{ __('Date From') }}"
+                                    name="filter_date_from"
+                                    type="date"
+                                    :value="$filters['date_from'] ?? null"
+                                />
+                            </div>
+
+                            <div>
+                                <x-forms.input
+                                    label="{{ __('Date To') }}"
+                                    name="filter_date_to"
+                                    type="date"
+                                    :value="$filters['date_to'] ?? null"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-3">
+                            <a href="{{ route('accounts.show', $account) }}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
+                                {{ __('Reset') }}
+                            </a>
+                            <x-button type="submit" class="px-4 py-2">
+                                {{ __('Apply Filters') }}
+                            </x-button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <x-table
@@ -338,52 +448,75 @@
                     });
                 }
 
-                // Income vs Expense Chart
-                const incomeExpenseCtx = document.getElementById('incomeExpenseChart');
-                if (incomeExpenseCtx) {
-                    const incomeExpenseData = @json($incomeExpenseData);
-                    const income = parseFloat(incomeExpenseData.income || 0);
-                    const expense = parseFloat(incomeExpenseData.expense || 0);
+                // Transactions by Category Chart
+                const transactionsByCategoryCtx = document.getElementById('transactionsByCategoryChart');
+                if (transactionsByCategoryCtx) {
+                    const categoryData = @json($transactionsByCategoryData);
+                    
+                    if (categoryData && categoryData.length > 0) {
+                        const labels = categoryData.map(item => item.category_name);
+                        const amounts = categoryData.map(item => parseFloat(item.total_amount));
+                        const categoryTypes = categoryData.map(item => item.category_type);
+                        
+                        // Generate colors based on category type
+                        const backgroundColors = categoryTypes.map(type => {
+                            if (type === 'income') {
+                                return 'rgb(34, 197, 94)'; // Green for income
+                            } else if (type === 'expense') {
+                                return 'rgb(239, 68, 68)'; // Red for expense
+                            } else {
+                                return 'rgb(59, 130, 246)'; // Blue for other types
+                            }
+                        });
 
-                    new Chart(incomeExpenseCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Income', 'Expense'],
-                            datasets: [{
-                                data: [income, expense],
-                                backgroundColor: [
-                                    'rgb(34, 197, 94)',
-                                    'rgb(239, 68, 68)'
-                                ],
-                                borderWidth: 2,
-                                borderColor: 'rgb(255, 255, 255)'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            aspectRatio: 1.5,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            const label = context.label || '';
-                                            const value = parseFloat(context.parsed || 0).toLocaleString('en-US', {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2
-                                            });
-                                            const total = income + expense;
-                                            const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
-                                            return label + ': ' + value + ' (' + percentage + '%)';
+                        new Chart(transactionsByCategoryCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    data: amounts,
+                                    backgroundColor: backgroundColors,
+                                    borderWidth: 2,
+                                    borderColor: 'rgb(255, 255, 255)'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                aspectRatio: 1.5,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            boxWidth: 12,
+                                            padding: 10
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(context) {
+                                                const label = context.label || '';
+                                                const value = parseFloat(context.parsed || 0).toLocaleString('en-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                });
+                                                const total = amounts.reduce((a, b) => a + b, 0);
+                                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                                const categoryType = categoryTypes[context.dataIndex];
+                                                return label + ' (' + categoryType + '): ' + value + ' (' + percentage + '%)';
+                                            }
                                         }
                                     }
                                 }
                             }
+                        });
+                    } else {
+                        // Show empty message
+                        const emptyMessage = document.getElementById('transactionsByCategoryChartEmpty');
+                        if (emptyMessage) {
+                            emptyMessage.classList.remove('hidden');
                         }
-                    });
+                    }
                 }
             });
         </script>

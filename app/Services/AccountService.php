@@ -133,11 +133,11 @@ class AccountService
         $account->delete();
     }
 
-    public function prepareShowData(Account $account, ?string $search, int $perPage = 15): array
+    public function prepareShowData(Account $account, ?string $search, int $perPage = 15, array $filters = []): array
     {
         $account->loadMissing(['company', 'bank']);
 
-        $transactions = $this->getAccountTransactions($account, $search, $perPage);
+        $transactions = $this->getAccountTransactions($account, $search, $perPage, $filters);
 
         return [
             'account' => $account,
@@ -146,18 +146,21 @@ class AccountService
             'rows' => $this->buildTransactionRows($transactions),
             'search' => $search ?? '',
             'balanceChartData' => $this->calculateBalanceChartData($account),
-            'incomeExpenseData' => $this->getIncomeExpenseData($account),
+            // 'incomeExpenseData' => $this->getIncomeExpenseData($account),
+            'transactionsByCategoryData' => $this->getTransactionsByCategoryData($account),
             'categories' => $this->getCategories($account),
             'transferAccounts' => $this->getTransferAccounts($account),
             'statuses' => $this->getStatusOptions(),
             'clients' => $this->getClients($account),
+            'typeOptions' => $this->getTypeOptions(),
+            'filters' => $filters,
         ];
     }
 
-    public function getAccountTransactions(Account $account, ?string $search, int $perPage = 15): LengthAwarePaginator
+    public function getAccountTransactions(Account $account, ?string $search, int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
         return Transaction::where('account_id', $account->id)
-            ->with(['company', 'category', 'creator', 'approver', 'relatedAccount'])
+            ->with(['company', 'category', 'creator', 'approver', 'relatedAccount', 'client'])
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('description', 'like', "%{$search}%")
@@ -169,6 +172,24 @@ class AccountService
                         ->orWhereHas('creator', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('approver', static fn ($q) => $q->where('name', 'like', "%{$search}%"));
                 });
+            })
+            ->when(! empty($filters['type'] ?? null), static function ($query) use ($filters) {
+                $query->where('type', $filters['type']);
+            })
+            ->when(! empty($filters['status'] ?? null), static function ($query) use ($filters) {
+                $query->where('status', $filters['status']);
+            })
+            ->when(! empty($filters['category_id'] ?? null), static function ($query) use ($filters) {
+                $query->where('category_id', $filters['category_id']);
+            })
+            ->when(! empty($filters['client_id'] ?? null), static function ($query) use ($filters) {
+                $query->where('client_id', $filters['client_id']);
+            })
+            ->when(! empty($filters['date_from'] ?? null), static function ($query) use ($filters) {
+                $query->where('date', '>=', $filters['date_from']);
+            })
+            ->when(! empty($filters['date_to'] ?? null), static function ($query) use ($filters) {
+                $query->where('date', '<=', $filters['date_to']);
             })
             ->latest()
             ->paginate($perPage)
@@ -291,6 +312,34 @@ class AccountService
             ->toArray();
     }
 
+    public function getTransactionsByCategoryData(Account $account): Collection
+    {
+        return Transaction::where('account_id', $account->id)
+            ->where('date', '>=', now()->subMonths(12))
+            ->whereNotNull('category_id')
+            ->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
+            ->whereNull('transaction_categories.deleted_at')
+            ->selectRaw('
+                transaction_categories.id as category_id,
+                transaction_categories.name as category_name,
+                transaction_categories.type as category_type,
+                SUM(transactions.amount) as total_amount,
+                COUNT(transactions.id) as transaction_count
+            ')
+            ->groupBy('transaction_categories.id', 'transaction_categories.name', 'transaction_categories.type')
+            ->orderByDesc('total_amount')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->category_name,
+                    'category_type' => $item->category_type,
+                    'total_amount' => (float) $item->total_amount,
+                    'transaction_count' => (int) $item->transaction_count,
+                ];
+            });
+    }
+
     public function getCategories(Account $account): array
     {
         return TransactionCategory::where('company_id', $account->company_id)
@@ -336,5 +385,14 @@ class AccountService
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
+    }
+
+    public function getTypeOptions(): array
+    {
+        return [
+            'income' => __('Income'),
+            'expense' => __('Expense'),
+            'transfer' => __('Transfer'),
+        ];
     }
 }

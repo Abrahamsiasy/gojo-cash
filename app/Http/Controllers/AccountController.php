@@ -56,7 +56,19 @@ class AccountController extends Controller
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        return view('admin.accounts.show', $this->accountService->prepareShowData($account, $searchValue));
+        $filters = [
+            'type' => $request->string('filter_type')->toString() ?: null,
+            'status' => $request->string('filter_status')->toString() ?: null,
+            'category_id' => $request->integer('filter_category_id') ?: null,
+            'client_id' => $request->integer('filter_client_id') ?: null,
+            'date_from' => $request->string('filter_date_from')->toString() ?: null,
+            'date_to' => $request->string('filter_date_to')->toString() ?: null,
+        ];
+
+        // Remove empty filter values
+        $filters = array_filter($filters, static fn ($value) => $value !== null && $value !== '');
+
+        return view('admin.accounts.show', $this->accountService->prepareShowData($account, $searchValue, 15, $filters));
     }
 
     /**
