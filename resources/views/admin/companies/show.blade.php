@@ -148,7 +148,7 @@
                         {{ __('Add Transaction') }}
                     </x-button>
 
-                    
+
                     <form
                         method="POST"
                         action="{{ route('companies.destroy', $company) }}"
@@ -236,6 +236,7 @@
             :categories="$transactionCategories"
             :transfer-accounts="$transferAccounts"
             :statuses="$statuses"
+            :clients="$clients"
             redirect-input="from_company"
         />
     </div>

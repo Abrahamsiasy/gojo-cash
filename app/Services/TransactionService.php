@@ -153,6 +153,7 @@ class TransactionService
             'description' => $data['description'] ?? null,
             'date' => $data['date'],
             'created_by' => Auth::id(),
+            'client_id' => $data['client_id']
         ]);
     }
 
@@ -178,6 +179,7 @@ class TransactionService
             'description' => $data['description'] ?? null,
             'date' => $data['date'],
             'created_by' => Auth::id(),
+            'client_id' => $data['client_id']
         ]);
     }
 

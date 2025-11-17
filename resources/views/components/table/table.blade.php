@@ -7,6 +7,7 @@
         'delete' => false,
     ],
     'paginator' => null,
+    'model' => ''
 ])
 
 @php
@@ -94,7 +95,7 @@
 
                                         <x-modal
                                             id="delete-{{ Arr::get($row, 'id') }}"
-                                            title="{{ Arr::get($row, 'actions.delete.title', __('Delete Company')) }}"
+                                            title="{{ Arr::get($row, 'actions.delete.title', __('Delete :model', ['model' => $model])) }}"
                                             confirmText="{{ Arr::get($row, 'actions.delete.confirmText', __('Delete')) }}"
                                             cancelText="{{ Arr::get($row, 'actions.delete.cancelText', __('Cancel')) }}"
                                             confirmColor="red"

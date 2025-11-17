@@ -38,6 +38,7 @@ class StoreTransactionRequest extends FormRequest
             'transaction_id' => ['nullable', 'integer'],
             'from_account' => ['sometimes', 'boolean'],
             'from_company' => ['sometimes', 'boolean'],
+            'client_id' => ['required', 'exists:clients,id'],
         ];
     }
 }

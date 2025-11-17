@@ -37,6 +37,12 @@
                     Transactions
                 </x-layouts.sidebar-link>
 
+                <!-- Clients -->
+                <x-layouts.sidebar-link href="{{ route('clients.index') }}" icon="fas-users"
+                    :active="request()->routeIs('clients.*')">
+                    Clients
+                </x-layouts.sidebar-link>
+
             </ul>
         </nav>
     </div>

@@ -5,6 +5,7 @@
 @props([
     'modalId',
     'companyId',
+    'clientId',
     'companyName' => null,
     'accountId' => null,
     'accountName' => null,
@@ -15,6 +16,7 @@
     'redirectInput' => null,
     'title' => __('Add Transaction'),
     'description' => null,
+    'clients' => null
 ])
 
 @php
@@ -24,6 +26,7 @@
     $transferToggleId = $prefix.'_is_transfer';
     $categorySelectId = $prefix.'_category';
     $relatedSelectId = $prefix.'_related_account';
+    $clientSelectId = $prefix.'_client';
 @endphp
 
 <div
@@ -36,6 +39,7 @@
         const relatedSelect = document.getElementById('{{ $relatedSelectId }}');
         const categorySelect = document.getElementById('{{ $categorySelectId }}');
         const transferToggle = document.getElementById('{{ $transferToggleId }}');
+        const clientSelect = document.getElementById('{{ $clientSelectId }}');
 
         if (relatedSelect) {
             relatedSelect.disabled = true;
@@ -175,6 +179,16 @@
                             id="{{ $categorySelectId }}"
                             :options="$categories"
                             placeholder="{{ __('Select category') }}"
+                            class="w-full"
+                        />
+                    </div>
+                    <div>
+                        <x-forms.select
+                            label="{{ __('Client') }}"
+                            name="client_id"
+                            id="{{ $clientSelectId }}"
+                            :options="$clients"
+                            placeholder="{{ __('Select client') }}"
                             class="w-full"
                         />
                     </div>

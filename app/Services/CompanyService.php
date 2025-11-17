@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Bank;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -31,8 +32,8 @@ class CompanyService
         return Company::query()
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('slug', 'like', '%'.$search.'%');
+                    $innerQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('slug', 'like', '%' . $search . '%');
                 });
             })
             ->latest()
@@ -125,6 +126,7 @@ class CompanyService
             'statuses' => $this->getStatusOptions(),
             'accountTypeOptions' => $this->getAccountTypeOptions(),
             'banks' => $this->getBanks(),
+            'clients' => $this->getClients()
         ];
     }
 
@@ -135,10 +137,10 @@ class CompanyService
             ->with(['bank', 'company'])
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('account_number', 'like', '%'.$search.'%')
+                    $innerQuery->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('account_number', 'like', '%' . $search . '%')
                         ->orWhereHas('bank', static function ($bankQuery) use ($search) {
-                            $bankQuery->where('name', 'like', '%'.$search.'%');
+                            $bankQuery->where('name', 'like', '%' . $search . '%');
                         });
                 });
             })
@@ -222,7 +224,7 @@ class CompanyService
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [
-                    $category->id => $category->name.' ('.$category->type.')',
+                    $category->id => $category->name . ' (' . $category->type . ')',
                 ];
             })
             ->toArray();
@@ -239,7 +241,7 @@ class CompanyService
                 $companyName = $account->company->name ?? __('—');
 
                 return [
-                    $account->id => $account->name.' ('.$companyName.')',
+                    $account->id => $account->name . ' (' . $companyName . ')',
                 ];
             })
             ->toArray();
@@ -268,5 +270,9 @@ class CompanyService
     public function getBanks(): array
     {
         return Bank::orderBy('name')->pluck('name', 'id')->toArray();
+    }
+    public function getClients(): array
+    {
+        return Client::orderBy('name')->pluck('name', 'id')->toArray();
     }
 }

@@ -134,7 +134,7 @@ class AccountService
 
     public function prepareShowData(Account $account, ?string $search, int $perPage = 15): array
     {
-        $account->loadMissing('company');
+        $account->loadMissing(['company', 'bank']);
 
         $transactions = $this->getAccountTransactions($account, $search, $perPage);
 

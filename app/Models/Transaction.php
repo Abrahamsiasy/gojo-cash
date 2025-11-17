@@ -29,6 +29,7 @@ class Transaction extends Model
         'updated_by',
         'is_reconciled',
         'meta',
+        'client_id'
     ];
 
     protected $casts = [
@@ -71,5 +72,9 @@ class Transaction extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
     }
 }
