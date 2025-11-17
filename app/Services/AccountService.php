@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Bank;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -149,6 +150,7 @@ class AccountService
             'categories' => $this->getCategories($account),
             'transferAccounts' => $this->getTransferAccounts($account),
             'statuses' => $this->getStatusOptions(),
+            'clients' => $this->getClients($account),
         ];
     }
 
@@ -326,5 +328,13 @@ class AccountService
             'approved' => 'Approved',
             'rejected' => 'Rejected',
         ];
+    }
+
+    public function getClients(Account $account): array
+    {
+        return Client::where('company_id', $account->company_id)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 }

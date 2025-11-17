@@ -271,6 +271,7 @@
         :categories="$categories"
         :transfer-accounts="$transferAccounts"
         :statuses="$statuses"
+        :clients="$clients"
         redirect-input="from_account"
     />
 
