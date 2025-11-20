@@ -166,6 +166,7 @@ class AccountService
                     $innerQuery->where('description', 'like', "%{$search}%")
                         ->orWhere('type', 'like', "%{$search}%")
                         ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhere('transaction_id', 'like', "%{$search}%")
                         ->orWhere('date', 'like', "%{$search}%")
                         ->orWhere('amount', 'like', "%{$search}%")
                         ->orWhereHas('category', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
@@ -178,6 +179,9 @@ class AccountService
             })
             ->when(! empty($filters['status'] ?? null), static function ($query) use ($filters) {
                 $query->where('status', $filters['status']);
+            })
+            ->when(! empty($filters['transaction_id'] ?? null), static function ($query) use ($filters) {
+                $query->where('transaction_id', $filters['transaction_id']);
             })
             ->when(! empty($filters['category_id'] ?? null), static function ($query) use ($filters) {
                 $query->where('category_id', $filters['category_id']);
