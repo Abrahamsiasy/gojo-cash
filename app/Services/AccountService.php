@@ -395,4 +395,42 @@ class AccountService
             'transfer' => __('Transfer'),
         ];
     }
+
+    public function getTransactionsForExport(Account $account, ?string $search, array $filters = []): \Illuminate\Support\Collection
+    {
+        return Transaction::where('account_id', $account->id)
+            ->with(['company', 'category', 'creator', 'approver', 'relatedAccount', 'client'])
+            ->when(! empty($search), static function ($query) use ($search) {
+                $query->where(static function ($innerQuery) use ($search) {
+                    $innerQuery->where('description', 'like', "%{$search}%")
+                        ->orWhere('type', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhere('date', 'like', "%{$search}%")
+                        ->orWhere('amount', 'like', "%{$search}%")
+                        ->orWhereHas('category', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('creator', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
+                        ->orWhereHas('approver', static fn ($q) => $q->where('name', 'like', "%{$search}%"));
+                });
+            })
+            ->when(! empty($filters['type'] ?? null), static function ($query) use ($filters) {
+                $query->where('type', $filters['type']);
+            })
+            ->when(! empty($filters['status'] ?? null), static function ($query) use ($filters) {
+                $query->where('status', $filters['status']);
+            })
+            ->when(! empty($filters['category_id'] ?? null), static function ($query) use ($filters) {
+                $query->where('category_id', $filters['category_id']);
+            })
+            ->when(! empty($filters['client_id'] ?? null), static function ($query) use ($filters) {
+                $query->where('client_id', $filters['client_id']);
+            })
+            ->when(! empty($filters['date_from'] ?? null), static function ($query) use ($filters) {
+                $query->where('date', '>=', $filters['date_from']);
+            })
+            ->when(! empty($filters['date_to'] ?? null), static function ($query) use ($filters) {
+                $query->where('date', '<=', $filters['date_to']);
+            })
+            ->latest()
+            ->get();
+    }
 }

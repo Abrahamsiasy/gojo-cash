@@ -246,6 +246,31 @@
                         :value="$search"
                         :placeholder="__('Search transactions...')"
                     />
+                    @php
+                        $exportUrl = route('accounts.export-transactions', $account);
+                        $exportParams = [];
+                        if ($search) {
+                            $exportParams['search'] = $search;
+                        }
+                        foreach ($filters ?? [] as $key => $value) {
+                            if ($value !== null && $value !== '') {
+                                $exportParams['filter_' . $key] = $value;
+                            }
+                        }
+                        if (!empty($exportParams)) {
+                            $exportUrl .= '?' . http_build_query($exportParams);
+                        }
+                    @endphp
+                    <x-button
+                        tag="a"
+                        href="{{ $exportUrl }}"
+                        class="w-full sm:w-auto"
+                    >
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        {{ __('Export CSV') }}
+                    </x-button>
                     <x-button
                         buttonType="button"
                         class="w-full sm:w-auto"

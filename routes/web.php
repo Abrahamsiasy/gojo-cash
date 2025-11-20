@@ -32,6 +32,7 @@ Route::middleware(['auth'])
 
         Route::resource('companies', CompanyController::class);
         Route::resource('accounts', AccountController::class);
+        Route::get('accounts/{account}/export-transactions', [AccountController::class, 'exportTransactions'])->name('accounts.export-transactions');
         Route::resource('transaction-categories', TransactionCategoryController::class);
         Route::resource('transactions', TransactionController::class);
         Route::resource('banks', BankController::class);

@@ -7,7 +7,9 @@ use App\Http\Requests\UpdateAccountRequest;
 use App\Models\Account;
 use App\Services\AccountService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AccountController extends Controller
 {
@@ -97,5 +99,78 @@ class AccountController extends Controller
         $this->accountService->deleteAccount($account);
 
         return redirect()->route('accounts.index')->with('success', __('Account deleted successfully.'));
+    }
+
+    /**
+     * Export transactions to CSV.
+     */
+    public function exportTransactions(Request $request, Account $account): StreamedResponse
+    {
+        $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
+
+        $filters = [
+            'type' => $request->string('filter_type')->toString() ?: null,
+            'status' => $request->string('filter_status')->toString() ?: null,
+            'category_id' => $request->integer('filter_category_id') ?: null,
+            'client_id' => $request->integer('filter_client_id') ?: null,
+            'date_from' => $request->string('filter_date_from')->toString() ?: null,
+            'date_to' => $request->string('filter_date_to')->toString() ?: null,
+        ];
+
+        // Remove empty filter values
+        $filters = array_filter($filters, static fn ($value) => $value !== null && $value !== '');
+
+        $transactions = $this->accountService->getTransactionsForExport($account, $searchValue, $filters);
+
+        $filename = 'transactions_'.Str::slug($account->name).'_'.now()->format('Y-m-d_His').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = static function () use ($transactions) {
+            $file = fopen('php://output', 'w');
+
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            // Headers
+            fputcsv($file, [
+                '#',
+                __('Type'),
+                __('Transaction ID'),
+                __('Amount'),
+                __('Category'),
+                __('Client'),
+                __('Status'),
+                __('Date'),
+                __('Description'),
+                __('Created By'),
+                __('Approved By'),
+            ]);
+
+            // Data rows
+            foreach ($transactions as $index => $transaction) {
+                fputcsv($file, [
+                    $index + 1,
+                    ucfirst($transaction->type),
+                    $transaction->transaction_id ?? '',
+                    number_format((float) $transaction->amount, 2),
+                    $transaction->category->name ?? '',
+                    $transaction->client->name ?? '',
+                    ucfirst($transaction->status ?? 'pending'),
+                    $transaction->date?->format('Y-m-d') ?? '',
+                    $transaction->description ?? '',
+                    $transaction->creator->name ?? '',
+                    $transaction->approver->name ?? '',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }
