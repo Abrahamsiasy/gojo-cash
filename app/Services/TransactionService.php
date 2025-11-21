@@ -33,7 +33,8 @@ class TransactionService
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('description', 'like', "%{$search}%")
                         ->orWhereHas('account', static fn ($q) => $q->where('name','like', "%{$search}%")
-                            ->orWhere('transaction_id', 'like', "%{$search}%"))
+                            ->orWhere('transaction_id', 'like', "%{$search}%")
+                            ->orWhere('amount', 'like', "%{$search}%"))
                         ->orWhereHas('company', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
                         ->orWhereHas('category', static fn ($q) => $q->where('name', 'like', "%{$search}%"));
                 });
