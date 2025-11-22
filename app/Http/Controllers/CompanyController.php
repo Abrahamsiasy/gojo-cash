@@ -51,7 +51,15 @@ class CompanyController extends Controller
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        return view('admin.companies.show', $this->companyService->prepareShowData($company, $searchValue));
+        $filters = $request->only(['filter_account_id', 'filter_category_id', 'filter_client_id', 'filter_date_from', 'filter_date_to']);
+
+        // Map filter keys to match service expectations (remove 'filter_' prefix)
+        $mappedFilters = [];
+        foreach ($filters as $key => $value) {
+            $mappedFilters[str_replace('filter_', '', $key)] = $value;
+        }
+
+        return view('admin.companies.show', $this->companyService->prepareShowData($company, $searchValue, 10, $mappedFilters));
     }
 
     /**

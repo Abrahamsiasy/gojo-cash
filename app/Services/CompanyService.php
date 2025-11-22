@@ -106,7 +106,7 @@ class CompanyService
         $company->delete();
     }
 
-    public function prepareShowData(Company $company, ?string $search, int $perPage = 10): array
+    public function prepareShowData(Company $company, ?string $search, int $perPage = 10, array $filters = []): array
     {
         $company->loadCount('accounts');
 
@@ -126,8 +126,33 @@ class CompanyService
             'statuses' => $this->getStatusOptions(),
             'accountTypeOptions' => $this->getAccountTypeOptions(),
             'banks' => $this->getBanks(),
-            'clients' => $this->getClients()
+            'clients' => $this->getClients(),
+            'incomeExpenseChartData' => $this->getIncomeExpenseChartData($company, $filters),
+            'transactionsByCategoryData' => $this->getTransactionsByCategoryData($company, $filters),
+            'incomeByCategoryData' => $this->getIncomeByCategoryData($company, $filters),
+            'transactionsByAccountData' => $this->getTransactionsByAccountData($company, $filters),
+            'transactionsByTypeData' => $this->getTransactionsByTypeData($company, $filters),
+            'financialInsights' => $this->getFinancialInsights($company, $filters),
         ];
+    }
+
+    private function applyTransactionFilters($query, array $filters): void
+    {
+        if (! empty($filters['account_id'])) {
+            $query->where('transactions.account_id', $filters['account_id']);
+        }
+        if (! empty($filters['category_id'])) {
+            $query->where('transactions.category_id', $filters['category_id']);
+        }
+        if (! empty($filters['client_id'])) {
+            $query->where('transactions.client_id', $filters['client_id']);
+        }
+        if (! empty($filters['date_from'])) {
+            $query->where('transactions.date', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->where('transactions.date', '<=', $filters['date_to']);
+        }
     }
 
     public function paginateCompanyAccounts(Company $company, ?string $search, int $perPage = 10): LengthAwarePaginator
@@ -193,16 +218,20 @@ class CompanyService
         });
     }
 
-    public function getCompanyMetrics(Company $company): array
+    public function getCompanyMetrics(Company $company, array $filters = []): array
     {
         $accountStats = Account::query()
             ->selectRaw('COUNT(*) as total_accounts, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_accounts, SUM(balance) as total_balance')
             ->where('company_id', $company->id)
             ->first();
 
-        $transactionStats = Transaction::query()
+        $transactionQuery = Transaction::query()
+            ->where('company_id', $company->id);
+
+        $this->applyTransactionFilters($transactionQuery, $filters);
+
+        $transactionStats = $transactionQuery
             ->selectRaw('COUNT(*) as total_transactions, SUM(CASE WHEN type = "income" THEN amount ELSE 0 END) as total_income, SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END) as total_expense')
-            ->where('company_id', $company->id)
             ->first();
 
         return [
@@ -274,5 +303,193 @@ class CompanyService
     public function getClients(): array
     {
         return Client::orderBy('name')->pluck('name', 'id')->toArray();
+    }
+
+    public function getIncomeExpenseChartData(Company $company, array $filters = []): array
+    {
+        // Default to last 12 months if not provided in filters
+        $dateFrom = isset($filters['date_from']) ? \Carbon\Carbon::parse($filters['date_from']) : now()->subMonths(11)->startOfMonth();
+        $dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : now()->endOfMonth();
+
+        $diffInDays = $dateFrom->diffInDays($dateTo);
+        $groupBy = $diffInDays <= 90 ? 'day' : 'month';
+        $dateFormat = $groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
+        $phpDateFormat = $groupBy === 'day' ? 'Y-m-d' : 'Y-m';
+        $labelFormat = $groupBy === 'day' ? 'M j' : 'M Y';
+
+        $query = Transaction::where('company_id', $company->id)
+            ->whereBetween('date', [$dateFrom, $dateTo])
+            ->whereIn('type', ['income', 'expense']);
+
+        $this->applyTransactionFilters($query, \Illuminate\Support\Arr::except($filters, ['date_from', 'date_to']));
+
+        $data = $query->selectRaw("DATE_FORMAT(date, '$dateFormat') as period, type, SUM(amount) as total")
+            ->groupBy('period', 'type')
+            ->orderBy('period')
+            ->get();
+
+        $labels = [];
+        $incomeData = [];
+        $expenseData = [];
+
+        $current = $dateFrom->copy();
+        while ($current <= $dateTo) {
+            $key = $current->format($phpDateFormat);
+            $label = $current->format($labelFormat);
+
+            $labels[] = $label;
+
+            $income = $data->where('period', $key)->where('type', 'income')->first()?->total ?? 0;
+            $expense = $data->where('period', $key)->where('type', 'expense')->first()?->total ?? 0;
+
+            $incomeData[] = (float) $income;
+            $expenseData[] = (float) $expense;
+
+            if ($groupBy === 'day') {
+                $current->addDay();
+            } else {
+                $current->addMonth();
+            }
+        }
+
+        return [
+            'labels' => $labels,
+            'income' => $incomeData,
+            'expense' => $expenseData,
+        ];
+    }
+
+    public function getTransactionsByCategoryData(Company $company, array $filters = []): array
+    {
+        $query = Transaction::where('transactions.company_id', $company->id)
+            ->where('transactions.type', 'expense')
+            ->whereNotNull('transactions.category_id');
+
+        $this->applyTransactionFilters($query, $filters);
+
+        $data = $query->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
+            ->selectRaw('transaction_categories.name, SUM(transactions.amount) as total')
+            ->groupBy('transaction_categories.name')
+            ->orderByDesc('total')
+            ->get();
+
+        return [
+            'labels' => $data->pluck('name')->toArray(),
+            'data' => $data->pluck('total')->map(fn($val) => (float) $val)->toArray(),
+        ];
+    }
+
+    public function getIncomeByCategoryData(Company $company, array $filters = []): array
+    {
+        $query = Transaction::where('transactions.company_id', $company->id)
+            ->where('transactions.type', 'income')
+            ->whereNotNull('transactions.category_id');
+
+        $this->applyTransactionFilters($query, $filters);
+
+        $data = $query->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
+            ->selectRaw('transaction_categories.name, SUM(transactions.amount) as total')
+            ->groupBy('transaction_categories.name')
+            ->orderByDesc('total')
+            ->get();
+
+        return [
+            'labels' => $data->pluck('name')->toArray(),
+            'data' => $data->pluck('total')->map(fn($val) => (float) $val)->toArray(),
+        ];
+    }
+
+    public function getTransactionsByAccountData(Company $company, array $filters = []): array
+    {
+        $query = Transaction::where('transactions.company_id', $company->id);
+
+        $this->applyTransactionFilters($query, $filters);
+
+        $data = $query->join('accounts', 'transactions.account_id', '=', 'accounts.id')
+            ->selectRaw('accounts.name, COUNT(transactions.id) as count')
+            ->groupBy('accounts.name')
+            ->orderByDesc('count')
+            ->limit(5)
+            ->get();
+
+        return [
+            'labels' => $data->pluck('name')->toArray(),
+            'data' => $data->pluck('count')->map(fn($val) => (int) $val)->toArray(),
+        ];
+    }
+
+    public function getTransactionsByTypeData(Company $company, array $filters = []): array
+    {
+        $query = Transaction::where('company_id', $company->id);
+
+        $this->applyTransactionFilters($query, $filters);
+
+        $data = $query->selectRaw('type, COUNT(*) as count, SUM(amount) as total_amount')
+            ->groupBy('type')
+            ->get();
+
+        $labels = $data->pluck('type')->map(fn($type) => ucfirst($type))->toArray();
+        $counts = $data->pluck('count')->map(fn($val) => (int) $val)->toArray();
+        $amounts = $data->pluck('total_amount')->map(fn($val) => (float) $val)->toArray();
+
+        return [
+            'labels' => $labels,
+            'counts' => $counts,
+            'amounts' => $amounts,
+        ];
+    }
+
+    public function getFinancialInsights(Company $company, array $filters = []): array
+    {
+        // 1. Net Cash Flow
+        $query = Transaction::where('company_id', $company->id);
+        $this->applyTransactionFilters($query, $filters);
+        $totals = $query->selectRaw('
+            SUM(CASE WHEN type = "income" THEN amount ELSE 0 END) as total_income,
+            SUM(CASE WHEN type = "expense" THEN amount ELSE 0 END) as total_expense
+        ')->first();
+
+        $netCashFlow = ($totals->total_income ?? 0) - ($totals->total_expense ?? 0);
+
+        // 2. Top Expense Category
+        $expenseQuery = Transaction::where('transactions.company_id', $company->id)
+            ->where('transactions.type', 'expense')
+            ->whereNotNull('transactions.category_id');
+        $this->applyTransactionFilters($expenseQuery, $filters);
+        $topExpense = $expenseQuery->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
+            ->selectRaw('transaction_categories.name, SUM(transactions.amount) as total')
+            ->groupBy('transaction_categories.name')
+            ->orderByDesc('total')
+            ->first();
+
+        // 3. Top Income Category
+        $incomeQuery = Transaction::where('transactions.company_id', $company->id)
+            ->where('transactions.type', 'income')
+            ->whereNotNull('transactions.category_id');
+        $this->applyTransactionFilters($incomeQuery, $filters);
+        $topIncome = $incomeQuery->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
+            ->selectRaw('transaction_categories.name, SUM(transactions.amount) as total')
+            ->groupBy('transaction_categories.name')
+            ->orderByDesc('total')
+            ->first();
+
+        // 4. Most Active Account
+        $accountQuery = Transaction::where('transactions.company_id', $company->id);
+        $this->applyTransactionFilters($accountQuery, $filters);
+        $activeAccount = $accountQuery->join('accounts', 'transactions.account_id', '=', 'accounts.id')
+            ->selectRaw('accounts.name, COUNT(transactions.id) as count')
+            ->groupBy('accounts.name')
+            ->orderByDesc('count')
+            ->first();
+
+        return [
+            'net_cash_flow' => $netCashFlow,
+            'top_expense_category' => $topExpense ? $topExpense->name : null,
+            'top_expense_amount' => $topExpense ? (float) $topExpense->total : 0,
+            'top_income_category' => $topIncome ? $topIncome->name : null,
+            'top_income_amount' => $topIncome ? (float) $topIncome->total : 0,
+            'most_active_account' => $activeAccount ? $activeAccount->name : null,
+            'most_active_account_count' => $activeAccount ? (int) $activeAccount->count : 0,
+        ];
     }
 }

@@ -145,15 +145,110 @@ class AccountService
             'headers' => $this->getTransactionHeaders(),
             'rows' => $this->buildTransactionRows($transactions),
             'search' => $search ?? '',
-            'balanceChartData' => $this->calculateBalanceChartData($account),
-            // 'incomeExpenseData' => $this->getIncomeExpenseData($account),
-            'transactionsByCategoryData' => $this->getTransactionsByCategoryData($account),
+            'incomeExpenseChartData' => $this->getIncomeExpenseChartData($account, $filters),
+            'kpiData' => $this->getKeyPerformanceIndicators($account, $filters),
+            'transactionsByCategoryData' => $this->getTransactionsByCategoryData($account, $filters),
             'categories' => $this->getCategories($account),
             'transferAccounts' => $this->getTransferAccounts($account),
             'statuses' => $this->getStatusOptions(),
             'clients' => $this->getClients($account),
             'typeOptions' => $this->getTypeOptions(),
             'filters' => $filters,
+        ];
+    }
+
+    public function getKeyPerformanceIndicators(Account $account, array $filters = []): array
+    {
+        $query = Transaction::where('account_id', $account->id);
+        $this->applyFilters($query, $filters);
+        
+        // Clone query for different aggregates to avoid interference if we were doing complex joins,
+        // but here we can just get the collection since we need to iterate for top category anyway.
+        // However, for performance on large datasets, separate DB queries might be better.
+        // Let's do separate queries for efficiency.
+
+        // 1. Income & Expense Totals
+        $totals = (clone $query)->whereIn('type', ['income', 'expense'])
+            ->selectRaw('type, SUM(amount) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        $income = (float) ($totals['income'] ?? 0);
+        $expense = (float) ($totals['expense'] ?? 0);
+
+        // 2. Top Expense Category
+        $topCategory = (clone $query)->where('type', 'expense')
+            ->whereNotNull('category_id')
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->orderByDesc('total')
+            ->with('category')
+            ->first();
+
+        return [
+            'net_cash_flow' => $income - $expense,
+            'total_income' => $income,
+            'total_expense' => $expense,
+            'top_expense_category' => $topCategory?->category->name ?? __('—'),
+            'top_expense_amount' => (float) ($topCategory?->total ?? 0),
+        ];
+    }
+
+    public function getIncomeExpenseChartData(Account $account, array $filters = []): array
+    {
+        // Determine date range from filters or default
+        $dateFrom = isset($filters['date_from']) ? \Carbon\Carbon::parse($filters['date_from']) : now()->subMonths(11)->startOfMonth();
+        $dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : now()->endOfMonth();
+
+        $diffInDays = $dateFrom->diffInDays($dateTo);
+        
+        // Dynamic Grouping: < 90 days -> Day, else -> Month
+        $groupBy = $diffInDays <= 90 ? 'day' : 'month';
+        $dateFormat = $groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
+        $phpDateFormat = $groupBy === 'day' ? 'Y-m-d' : 'Y-m';
+        $labelFormat = $groupBy === 'day' ? 'M j' : 'M Y';
+
+        $query = Transaction::where('account_id', $account->id)
+            ->whereBetween('date', [$dateFrom, $dateTo])
+            ->whereIn('type', ['income', 'expense']);
+            
+        $this->applyFilters($query, \Illuminate\Support\Arr::except($filters, ['date_from', 'date_to']));
+
+        $data = $query->selectRaw("DATE_FORMAT(date, '$dateFormat') as period, type, SUM(amount) as total")
+            ->groupBy('period', 'type')
+            ->orderBy('period')
+            ->get();
+
+        $labels = [];
+        $incomeData = [];
+        $expenseData = [];
+        
+        // Fill gaps
+        $current = $dateFrom->copy();
+        while ($current <= $dateTo) {
+            $key = $current->format($phpDateFormat);
+            $label = $current->format($labelFormat);
+            
+            $labels[] = $label;
+            
+            // Find data for this period
+            $income = $data->where('period', $key)->where('type', 'income')->first()?->total ?? 0;
+            $expense = $data->where('period', $key)->where('type', 'expense')->first()?->total ?? 0;
+            
+            $incomeData[] = (float) $income;
+            $expenseData[] = (float) $expense;
+
+            if ($groupBy === 'day') {
+                $current->addDay();
+            } else {
+                $current->addMonth();
+            }
+        }
+
+        return [
+            'labels' => $labels,
+            'income' => $incomeData,
+            'expense' => $expenseData,
         ];
     }
 
@@ -248,79 +343,36 @@ class AccountService
         });
     }
 
-    public function calculateBalanceChartData(Account $account): Collection
+    public function applyFilters($query, array $filters): void
     {
-        $balanceHistory = Transaction::where('account_id', $account->id)
-            ->where('date', '>=', now()->subMonths(12))
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(CASE WHEN type = "income" THEN amount WHEN type = "expense" THEN -amount WHEN type = "transfer" THEN -amount ELSE 0 END) as net_change')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
-
-        $transferInHistory = Transaction::where('related_account_id', $account->id)
-            ->where('date', '>=', now()->subMonths(12))
-            ->where('type', 'income')
-            ->selectRaw('DATE_FORMAT(date, "%Y-%m") as month, SUM(amount) as total')
-            ->groupBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
-
-        $mergedHistory = $balanceHistory->map(function ($item) use ($transferInHistory) {
-            $transferIn = $transferInHistory[$item->month] ?? 0;
-            $item->net_change = (float) $item->net_change + (float) $transferIn;
-
-            return $item;
-        });
-
-        $transactionsBefore = Transaction::where('account_id', $account->id)
-            ->where('date', '<', now()->subMonths(12))
-            ->get();
-
-        $startingBalance = (float) $account->opening_balance;
-
-        foreach ($transactionsBefore as $txn) {
-            if ($txn->type === 'income') {
-                $startingBalance += (float) $txn->amount;
-            } elseif (in_array($txn->type, ['expense', 'transfer'], true)) {
-                $startingBalance -= (float) $txn->amount;
-            }
+        if (! empty($filters['type'])) {
+            $query->where('transactions.type', $filters['type']);
         }
-
-        $transfersInBefore = Transaction::where('related_account_id', $account->id)
-            ->where('date', '<', now()->subMonths(12))
-            ->where('type', 'income')
-            ->sum('amount');
-
-        $startingBalance += (float) $transfersInBefore;
-
-        $runningBalance = $startingBalance;
-
-        return $mergedHistory->map(function ($item) use (&$runningBalance) {
-            $runningBalance += (float) $item->net_change;
-
-            return [
-                'month' => $item->month,
-                'balance' => $runningBalance,
-            ];
-        });
+        if (! empty($filters['status'])) {
+            $query->where('transactions.status', $filters['status']);
+        }
+        if (! empty($filters['category_id'])) {
+            $query->where('transactions.category_id', $filters['category_id']);
+        }
+        if (! empty($filters['client_id'])) {
+            $query->where('transactions.client_id', $filters['client_id']);
+        }
+        if (! empty($filters['date_from'])) {
+            $query->where('transactions.date', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $query->where('transactions.date', '<=', $filters['date_to']);
+        }
     }
 
-    public function getIncomeExpenseData(Account $account): array
-    {
-        return Transaction::where('account_id', $account->id)
-            ->where('date', '>=', now()->subMonths(12))
-            ->whereIn('type', ['income', 'expense'])
-            ->selectRaw('type, SUM(amount) as total')
-            ->groupBy('type')
-            ->pluck('total', 'type')
-            ->toArray();
-    }
 
-    public function getTransactionsByCategoryData(Account $account): Collection
+    public function getTransactionsByCategoryData(Account $account, array $filters = []): Collection
     {
-        return Transaction::where('account_id', $account->id)
-            ->where('date', '>=', now()->subMonths(12))
-            ->whereNotNull('category_id')
+        $query = Transaction::where('account_id', $account->id);
+        
+        $this->applyFilters($query, $filters);
+
+        return $query->whereNotNull('category_id')
             ->join('transaction_categories', 'transactions.category_id', '=', 'transaction_categories.id')
             ->whereNull('transaction_categories.deleted_at')
             ->selectRaw('
