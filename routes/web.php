@@ -2,12 +2,12 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BankController;
+use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Settings;
 use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ClientController;
 
 Route::view('/', 'home')
     ->name('home');
@@ -43,3 +43,20 @@ Route::middleware(['auth'])
 require __DIR__.'/telegram.php';
 
 require __DIR__.'/auth.php';
+
+Route::middleware(['web'])
+    ->withoutMiddleware([\App\Http\Middleware\CheckInstallation::class])
+    ->group(function () {
+        Route::get('install/step1', [App\Http\Controllers\InstallController::class, 'database'])->name('install.step1');
+        Route::post('install/step1', [App\Http\Controllers\InstallController::class, 'storeDatabase'])->name('install.step1.store');
+    });
+
+Route::middleware(['web'])->group(function () {
+    Route::get('install/reset', [App\Http\Controllers\InstallController::class, 'reset'])->name('install.reset');
+    Route::get('install/step2', [App\Http\Controllers\InstallController::class, 'step2'])->name('install.step2');
+    Route::post('install/step2', [App\Http\Controllers\InstallController::class, 'storeMigrate'])->name('install.step2.store');
+    Route::get('install/step3', [App\Http\Controllers\InstallController::class, 'step3'])->name('install.step3');
+    Route::post('install/step3', [App\Http\Controllers\InstallController::class, 'storeAdmin'])->name('install.step3.store');
+    Route::get('install/step4', [App\Http\Controllers\InstallController::class, 'step4'])->name('install.step4');
+    Route::post('install/step4', [App\Http\Controllers\InstallController::class, 'storeCompany'])->name('install.step4.store');
+});
