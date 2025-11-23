@@ -290,10 +290,67 @@ class TransactionService
             'approver',
             'updater',
             'client',
+            'attachments.uploader',
         ]);
 
         return [
             'transaction' => $transaction,
         ];
+    }
+
+    /**
+     * Store attachments for a transaction.
+     */
+    public function storeAttachments(Transaction $transaction, array $files): array
+    {
+        $storedAttachments = [];
+        $companyId = $transaction->company_id;
+        $transactionId = $transaction->id;
+        $basePath = "companies/{$companyId}/transactions/{$transactionId}";
+
+        foreach ($files as $file) {
+            $extension = $file->getClientOriginalExtension();
+            $timestamp = now()->timestamp;
+            $transactionIdForFile = $transaction->transaction_id ?? $transaction->id;
+            $filename = "{$transactionIdForFile}-{$timestamp}.{$extension}";
+
+            // Store file in public disk
+            // storeAs returns path relative to disk root (without 'public/' prefix)
+            $storedPath = $file->storeAs($basePath, $filename, 'public');
+
+            // Create attachment record
+            $attachment = \App\Models\TransactionAttachment::create([
+                'transaction_id' => $transaction->id,
+                'file_path' => $storedPath,
+                'type' => $file->getMimeType(),
+                'original_name' => $file->getClientOriginalName(),
+                'uploaded_by' => \Illuminate\Support\Facades\Auth::id(),
+                'file_size' => $file->getSize(),
+            ]);
+
+            $storedAttachments[] = $attachment;
+        }
+
+        return $storedAttachments;
+    }
+
+    /**
+     * Delete a transaction attachment.
+     */
+    public function deleteAttachment(\App\Models\TransactionAttachment $attachment): void
+    {
+        // Delete file from storage (file_path is relative, so we need to check in public disk)
+        $fullPath = 'public/'.$attachment->file_path;
+        if (\Illuminate\Support\Facades\Storage::disk('local')->exists($fullPath)) {
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($fullPath);
+        }
+
+        // Also try public disk directly
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($attachment->file_path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($attachment->file_path);
+        }
+
+        // Delete attachment record
+        $attachment->delete();
     }
 }

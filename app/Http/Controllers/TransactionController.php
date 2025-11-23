@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreTransactionAttachmentRequest;
 use App\Http\Requests\StoreTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
 use App\Models\Transaction;
+use App\Models\TransactionAttachment;
 use App\Services\TransactionService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -39,7 +41,29 @@ class TransactionController extends Controller
     public function store(StoreTransactionRequest $request)
     {
         try {
-            $this->transactionService->recordTransaction($request->validated());
+            $transaction = $this->transactionService->recordTransaction($request->validated());
+
+            // Handle attachments if provided
+            $hasAttachments = false;
+            if ($request->hasFile('attachments')) {
+                try {
+                    $this->transactionService->storeAttachments(
+                        $transaction,
+                        $request->file('attachments')
+                    );
+                    $hasAttachments = true;
+                } catch (Throwable $e) {
+                    report($e);
+                    // Transaction is saved, but attachments failed - continue with success message
+                }
+            }
+
+            // If attachments were uploaded, redirect to show page to view them
+            if ($hasAttachments) {
+                return redirect()
+                    ->route('transactions.show', $transaction)
+                    ->with('success', __('Transaction recorded successfully with attachments.'));
+            }
         } catch (Throwable $e) {
             report($e);
 
@@ -97,5 +121,45 @@ class TransactionController extends Controller
         $this->transactionService->deleteTransaction($transaction);
 
         return redirect()->route('transactions.index')->with('success', __('Transaction deleted successfully.'));
+    }
+
+    /**
+     * Store attachments for a transaction.
+     */
+    public function storeAttachments(StoreTransactionAttachmentRequest $request, Transaction $transaction)
+    {
+        try {
+            $attachments = $this->transactionService->storeAttachments(
+                $transaction,
+                $request->file('attachments')
+            );
+
+            return redirect()
+                ->route('transactions.show', $transaction)
+                ->with('success', __(':count file(s) uploaded successfully.', ['count' => count($attachments)]));
+        } catch (Throwable $e) {
+            report($e);
+
+            return back()->withErrors([
+                'error' => __('An error occurred while uploading files. Please try again.'),
+            ]);
+        }
+    }
+
+    /**
+     * Delete a transaction attachment.
+     */
+    public function destroyAttachment(Transaction $transaction, TransactionAttachment $attachment)
+    {
+        // Verify attachment belongs to transaction
+        if ($attachment->transaction_id !== $transaction->id) {
+            abort(403);
+        }
+
+        $this->transactionService->deleteAttachment($attachment);
+
+        return redirect()
+            ->route('transactions.show', $transaction)
+            ->with('success', __('Attachment deleted successfully.'));
     }
 }

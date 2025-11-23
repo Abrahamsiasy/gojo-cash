@@ -29,7 +29,7 @@ class Transaction extends Model
         'updated_by',
         'is_reconciled',
         'meta',
-        'client_id'
+        'client_id',
     ];
 
     protected $casts = [
@@ -73,8 +73,14 @@ class Transaction extends Model
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
+
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function attachments()
+    {
+        return $this->hasMany(TransactionAttachment::class);
     }
 }

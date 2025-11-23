@@ -35,6 +35,8 @@ Route::middleware(['auth'])
         Route::get('accounts/{account}/export-transactions', [AccountController::class, 'exportTransactions'])->name('accounts.export-transactions');
         Route::resource('transaction-categories', TransactionCategoryController::class);
         Route::resource('transactions', TransactionController::class);
+        Route::post('transactions/{transaction}/attachments', [TransactionController::class, 'storeAttachments'])->name('transactions.attachments.store');
+        Route::delete('transactions/{transaction}/attachments/{attachment}', [TransactionController::class, 'destroyAttachment'])->name('transactions.attachments.destroy');
         Route::resource('banks', BankController::class);
         Route::resource('clients', ClientController::class);
 
