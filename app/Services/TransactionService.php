@@ -32,7 +32,7 @@ class TransactionService
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('description', 'like', "%{$search}%")
-                        ->orWhereHas('account', static fn ($q) => $q->where('name','like', "%{$search}%")
+                        ->orWhereHas('account', static fn ($q) => $q->where('name', 'like', "%{$search}%")
                             ->orWhere('transaction_id', 'like', "%{$search}%")
                             ->orWhere('amount', 'like', "%{$search}%"))
                         ->orWhereHas('company', static fn ($q) => $q->where('name', 'like', "%{$search}%"))
@@ -155,7 +155,7 @@ class TransactionService
             'description' => $data['description'] ?? null,
             'date' => $data['date'],
             'created_by' => Auth::id(),
-            'client_id' => $data['client_id']
+            'client_id' => $data['client_id'],
         ]);
     }
 
@@ -181,7 +181,7 @@ class TransactionService
             'description' => $data['description'] ?? null,
             'date' => $data['date'],
             'created_by' => Auth::id(),
-            'client_id' => $data['client_id']
+            'client_id' => $data['client_id'],
         ]);
     }
 
@@ -276,6 +276,24 @@ class TransactionService
             'pending' => 'Pending',
             'approved' => 'Approved',
             'rejected' => 'Rejected',
+        ];
+    }
+
+    public function prepareShowData(Transaction $transaction): array
+    {
+        $transaction->load([
+            'company',
+            'account',
+            'relatedAccount',
+            'category',
+            'creator',
+            'approver',
+            'updater',
+            'client',
+        ]);
+
+        return [
+            'transaction' => $transaction,
         ];
     }
 }
