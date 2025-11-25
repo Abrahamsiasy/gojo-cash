@@ -12,12 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Run this BEFORE session middleware to ensure database is ready
-        $middleware->web(prepend: [
-            \App\Http\Middleware\EnsureInstallationReady::class,
-        ]);
-        $middleware->web(append: [
-            \App\Http\Middleware\CheckInstallation::class,
-        ]);
+        // $middleware->web(prepend: [
+        //     \App\Http\Middleware\EnsureInstallationReady::class,
+        // ]);
+        // $middleware->web(append: [
+        //     \App\Http\Middleware\CheckInstallation::class,
+        // ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {

@@ -5,14 +5,6 @@
             {{ __('View and manage all Clients') }}
         </p>
     </div>
-    @if (session('success'))
-        <x-alert type="success" :message="session('success')" />
-    @endif
-
-    @if (session('error'))
-        <x-alert type="danger" :message="session('error')" />
-    @endif
-
 
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <x-table.search

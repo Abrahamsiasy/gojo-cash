@@ -47,16 +47,16 @@
             const form = document.querySelector(`form[data-modal="${modalId}"]`);
             if (form) form.submit();
         });
-        // delete modeal script end 
+        // delete modeal script end
     </script>
-
+    <link rel="stylesheet" href="{{ asset('vendor/toastr/css/toastr.min.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
 
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 antialiased" x-data="{
     sidebarOpen: localStorage.getItem('sidebarOpen') === null ? window.innerWidth >= 1024 : localStorage.getItem('sidebarOpen') === 'true',
-    toggleSidebar() { 
+    toggleSidebar() {
         this.sidebarOpen = !this.sidebarOpen;
         localStorage.setItem('sidebarOpen', this.sidebarOpen);
     },
@@ -128,6 +128,17 @@
             </main>
         </div>
     </div>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ asset('vendor/toastr/js/toastr.min.js') }}"></script>
+    <script>
+        @if (session('success'))
+            toastr.success("{{ session('success') }}");
+        @endif
+
+        @if (session('error'))
+            toastr.error("{{ session('error') }}");
+        @endif
+    </script>
     @stack('scripts')
 </body>
 </html>

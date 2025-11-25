@@ -4,9 +4,11 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings;
 use App\Http\Controllers\TransactionCategoryController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home')
@@ -37,6 +39,8 @@ Route::middleware(['auth'])
         Route::resource('transactions', TransactionController::class);
         Route::resource('banks', BankController::class);
         Route::resource('clients', ClientController::class);
+        Route::resource('users', UserController::class);
+        Route::resource('roles', RoleController::class);
 
     });
 

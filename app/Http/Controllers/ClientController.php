@@ -18,6 +18,7 @@ class ClientController extends Controller
 
     public function index(Request $request): View
     {
+        $this->authorize('list client');
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -29,6 +30,7 @@ class ClientController extends Controller
      */
     public function create(): View
     {
+        $this->authorize('create client');
         return view('admin.clients.create', $this->clientService->prepareCreateFormData());
     }
 
@@ -37,6 +39,7 @@ class ClientController extends Controller
      */
     public function store(StoreClientRequest $request)
     {
+        $this->authorize('create client');
         $this->clientService->createClient($request->validated());
         return redirect()->route('clients.index')->with('success', __('Client created successfully.'));
     }
@@ -46,7 +49,7 @@ class ClientController extends Controller
      */
     public function show(Client $client)
     {
-        //
+        $this->authorize('view client');
     }
 
     /**
@@ -54,6 +57,7 @@ class ClientController extends Controller
      */
     public function edit(Client $client)
     {
+        $this->authorize('edit client');
         return view('admin.clients.edit', $this->clientService->prepareEditFormData($client));
     }
 
@@ -62,6 +66,7 @@ class ClientController extends Controller
      */
     public function update(UpdateClientRequest $request, Client $client)
     {
+        $this->authorize('edit client');
         $this->clientService->updateClient($client, $request->validated());
         return redirect()->route('clients.index')->with('success', __('Client updated successfully.'));
     }
@@ -71,7 +76,7 @@ class ClientController extends Controller
      */
     public function destroy(Client $client)
     {
-
+        $this->authorize('delete client');
         $this->clientService->deleteClient($client);
         return redirect()->route('clients.index')->with('success', __('Client deleted successfully.'));
     }
