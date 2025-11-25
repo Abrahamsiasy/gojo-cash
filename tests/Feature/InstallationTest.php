@@ -40,7 +40,7 @@ class InstallationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('install.step5'));
+        $response->assertRedirect(route('install.step4'));
     }
 
     public function test_can_create_company()
@@ -48,7 +48,7 @@ class InstallationTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        $response = $this->post(route('install.step5.store'), [
+        $response = $this->post(route('install.step4.store'), [
             'name' => 'My Company',
         ]);
 
@@ -116,7 +116,7 @@ class InstallationTest extends TestCase
         $response = $this->get(route('install.step4'));
         $response->assertRedirect(route('home'));
 
-        $response = $this->get(route('install.step5'));
+        $response = $this->get(route('install.step4'));
         $response->assertRedirect(route('home'));
 
         // Clean up
@@ -137,7 +137,7 @@ class InstallationTest extends TestCase
 
         $this->assertFalse(\Illuminate\Support\Facades\File::exists($lockFile));
 
-        $this->post(route('install.step5.store'), [
+        $this->post(route('install.step4.store'), [
             'name' => 'Test Company',
         ]);
 

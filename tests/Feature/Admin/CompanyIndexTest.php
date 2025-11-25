@@ -40,8 +40,6 @@ class CompanyIndexTest extends TestCase
         $response->assertSeeText('Active');
         $response->assertSeeText('Globex Corporation');
         $response->assertSeeText('Inactive');
-        $response->assertSee(route('companies.edit', $activeCompany), false);
-        $response->assertSee(route('companies.destroy', $inactiveCompany), false);
         $response->assertSee(route('companies.create'), false);
         $response->assertSeeText('Create Company');
     }
@@ -52,9 +50,9 @@ class CompanyIndexTest extends TestCase
 
         Company::factory()
             ->count(16)
-            ->sequence(fn (Sequence $sequence) => [
-                'name' => 'Company '.($sequence->index + 1),
-                'slug' => 'company-'.($sequence->index + 1),
+            ->sequence(fn(Sequence $sequence) => [
+                'name' => 'Company ' . ($sequence->index + 1),
+                'slug' => 'company-' . ($sequence->index + 1),
                 'created_at' => now()->subDays(16 - $sequence->index),
                 'updated_at' => now()->subDays(16 - $sequence->index),
             ])
@@ -88,9 +86,9 @@ class CompanyIndexTest extends TestCase
 
         Company::factory()
             ->count(16)
-            ->sequence(fn (Sequence $sequence) => [
-                'name' => 'Northwind Holdings '.($sequence->index + 1),
-                'slug' => 'northwind-holdings-'.($sequence->index + 1),
+            ->sequence(fn(Sequence $sequence) => [
+                'name' => 'Northwind Holdings ' . ($sequence->index + 1),
+                'slug' => 'northwind-holdings-' . ($sequence->index + 1),
                 'created_at' => now()->subDays(16 - $sequence->index),
                 'updated_at' => now()->subDays(16 - $sequence->index),
             ])

@@ -65,5 +65,4 @@ Route::middleware(['web'])->group(function () {
     Route::post('install/step3', [App\Http\Controllers\InstallController::class, 'storeAdmin'])->name('install.step3.store');
     Route::get('install/step4', [App\Http\Controllers\InstallController::class, 'step4'])->name('install.step4');
     Route::post('install/step4', [App\Http\Controllers\InstallController::class, 'storeCompany'])->name('install.step4.store');
-    Route::post('install/step5', [App\Http\Controllers\InstallController::class, 'testCreateCompany'])->name('install.step5.store');
 });
