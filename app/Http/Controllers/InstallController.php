@@ -496,4 +496,7 @@ class InstallController extends Controller
         $lockFile = storage_path('app/.installed');
         File::put($lockFile, now()->toDateTimeString());
     }
+    public function testCreateCompany()
+    {
+    }
 }
