@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\File;
 
 class StoreTransactionRequest extends FormRequest
 {
@@ -39,6 +40,11 @@ class StoreTransactionRequest extends FormRequest
             'from_account' => ['sometimes', 'boolean'],
             'from_company' => ['sometimes', 'boolean'],
             'client_id' => ['required', 'exists:clients,id'],
+            'attachments' => ['sometimes', 'array', 'max:10'],
+            'attachments.*' => [
+                File::types(['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv'])
+                    ->max(10240), // 10MB max per file
+            ],
         ];
     }
 }

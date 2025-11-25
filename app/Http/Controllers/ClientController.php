@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Client;
 use App\Http\Requests\StoreClientRequest;
 use App\Http\Requests\UpdateClientRequest;
+use App\Models\Client;
 use App\Services\ClientService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,15 +41,30 @@ class ClientController extends Controller
     {
         $this->authorize('create client');
         $this->clientService->createClient($request->validated());
+
         return redirect()->route('clients.index')->with('success', __('Client created successfully.'));
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Client $client)
+    public function show(Request $request, Client $client)
     {
         $this->authorize('view client');
+        $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
+
+        $filters = [
+            'account_id' => $request->integer('filter_account_id') ?: null,
+            'category_id' => $request->integer('filter_category_id') ?: null,
+            'date_from' => $request->string('filter_date_from')->toString() ?: null,
+            'date_to' => $request->string('filter_date_to')->toString() ?: null,
+        ];
+
+        // Remove empty filter values
+        $filters = array_filter($filters, static fn ($value) => $value !== null && $value !== '');
+
+        return view('admin.clients.show', $this->clientService->prepareShowData($client, $searchValue, 15, $filters));
     }
 
     /**
@@ -68,6 +83,7 @@ class ClientController extends Controller
     {
         $this->authorize('edit client');
         $this->clientService->updateClient($client, $request->validated());
+
         return redirect()->route('clients.index')->with('success', __('Client updated successfully.'));
     }
 
@@ -78,6 +94,7 @@ class ClientController extends Controller
     {
         $this->authorize('delete client');
         $this->clientService->deleteClient($client);
+
         return redirect()->route('clients.index')->with('success', __('Client deleted successfully.'));
     }
 }
