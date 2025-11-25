@@ -1,69 +1,45 @@
-# Laravel + Blade Starter Kit
+# Gojo Finance App
 
----
+A Laravel-based finance management application for tracking transactions, accounts, and companies.
 
-## Introduction
+## Features
 
-Our Laravel 12 + Blade starter kit provides the typical functionality found in the Laravel Starter kits, but with a few key differences:
+### Installation
+- One-time installation wizard
+- Database configuration and migration
+- Admin account creation
+- Company setup
 
-- A CoreUI/AdminLTE inspired design layout
-- Blade + AlpineJS code
+### Companies
+- Create, edit, and manage companies
+- View company details and accounts
 
-This kit aims to fill the gap where there is no simple **Blade only** starter kit available.
+### Accounts
+- Create and manage accounts
+- Link accounts to companies
+- View account transactions
 
-Our internal goal at Laravel Daily is to start using this starter kit for our Demo applications, to avoid overwhelming our audience with Vue/Livewire/React if we had used one of the official Laravel 12 starter kits.
+### Clients
+- Manage client information
+- Link clients to transactions
 
-**Note:** This is Work in Progress kit, so it will get updates and fixes/features as we go.
+### Banks
+- Bank management
+- Bank account tracking
 
----
+### Transactions
+- Create income, expense, and transfer transactions
+- Transaction categories management
+- File attachments (images and documents)
+- Image preview during upload
+- Transaction details view
+- Transaction filtering and search
 
-## Screenshots
+### Authentication
+- User login and registration
+- Password reset
+- Email confirmation
+- Profile management
 
-![](https://laraveldaily.com/uploads/2025/05/LoginPage.png)
-
-![](https://laraveldaily.com/uploads/2025/05/RegisterPage.png)
-
-![](https://laraveldaily.com/uploads/2025/05/DashboardPage.png)
-
-![](https://laraveldaily.com/uploads/2025/05/ProfilePage.png)
-
----
-
-## What is Inside?
-
-Inside you will find all the functions that you would expect:
-
-- Authentication
-    - Login
-    - Registration
-    - Password Reset Flow
-    - Email Confirmation Flow
-- Dashboard Page
-- Profile Settings
-    - Profile Information Page
-    - Password Update Page
-    - Appearance Preferences
-
----
-
-## How to use it?
-
-To use this kit, you can install it using:
-
-```bash
-laravel new --using=laraveldaily/starter-kit
-```
-
-From there, you can modify the kit to your needs.
-
----
-
-## Design Elements
-
-If you want to see examples of what design elements we have, you can [visit the Wiki](<https://github.com/LaravelDaily/starter-kit/wiki/Design-Examples-(Raw-Files)>) and see the raw HTML files.
-
----
-
-## Licence
-
-Starter kit is open-sourced software licensed under the MIT license.
+### Dashboard
+- Overview of financial data

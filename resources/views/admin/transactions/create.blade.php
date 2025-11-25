@@ -14,8 +14,18 @@
         </a>
     </div>
 
+    @if ($errors->any())
+        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+            <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 gap-4">
-        <form method="POST" action="{{ route('transactions.store') }}"
+        <form method="POST" action="{{ route('transactions.store') }}" enctype="multipart/form-data"
     class="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">
     @csrf
 
@@ -55,6 +65,108 @@
     {{-- Full width description and button --}}
     <div class="md:col-span-2 space-y-4">
         <x-forms.textarea label="Description" name="description" placeholder="Enter description (optional)" />
+
+        {{-- File Attachments Section --}}
+        <div
+            x-data="{
+                previews: [],
+                handleFileSelect(event) {
+                    const files = Array.from(event.target.files);
+                    this.previews = [];
+                    files.forEach(file => {
+                        if (file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                this.previews.push({
+                                    name: file.name,
+                                    size: file.size,
+                                    url: e.target.result
+                                });
+                            };
+                            reader.readAsDataURL(file);
+                        } else {
+                            this.previews.push({
+                                name: file.name,
+                                size: file.size,
+                                url: null
+                            });
+                        }
+                    });
+                },
+                removePreview(index) {
+                    this.previews.splice(index, 1);
+                }
+            }"
+            class="space-y-3"
+        >
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    {{ __('Attachments') }} <span class="text-gray-500 dark:text-gray-400 text-xs">({{ __('Optional') }})</span>
+                </label>
+                <input
+                    type="file"
+                    name="attachments[]"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv"
+                    @change="handleFileSelect($event)"
+                    class="block w-full text-sm text-gray-500 dark:text-gray-400
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100
+                        dark:file:bg-blue-900/30 dark:file:text-blue-400"
+                >
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    {{ __('Allowed: Images (JPG, PNG, GIF, WEBP),  Max 10MB per file.') }}
+                </p>
+            </div>
+
+            {{-- Image Previews --}}
+            <div x-show="previews.length > 0" class="space-y-3">
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ __('Selected Files:') }}
+                </p>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <template x-for="(preview, index) in previews" :key="index">
+                        <div class="relative border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                            <template x-if="preview.url">
+                                <div class="relative">
+                                    <img :src="preview.url" :alt="preview.name" class="w-full h-24 object-cover">
+                                    <button
+                                        type="button"
+                                        @click="removePreview(index)"
+                                        class="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 transition-colors"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </template>
+                            <template x-if="!preview.url">
+                                <div class="p-4 bg-gray-50 dark:bg-gray-800 text-center">
+                                    <svg class="w-8 h-8 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <button
+                                        type="button"
+                                        @click="removePreview(index)"
+                                        class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    >
+                                        {{ __('Remove') }}
+                                    </button>
+                                </div>
+                            </template>
+                            <div class="p-2 bg-white dark:bg-gray-900">
+                                <p class="text-xs text-gray-600 dark:text-gray-400 truncate" :title="preview.name" x-text="preview.name"></p>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
         <div class="flex justify-end mt-4">
             <x-button>Save Transaction</x-button>
         </div>
