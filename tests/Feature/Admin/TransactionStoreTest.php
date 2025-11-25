@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Bank;
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Transaction;
 use App\Models\TransactionCategory;
@@ -40,12 +41,18 @@ class TransactionStoreTest extends TestCase
             'type' => 'income',
             'is_default' => true,
         ]);
+        $client = Client::create([
+            'name' => 'John',
+            'company_id' => $company->id,
+            'email' => 'resr@twet.com'
+        ]);
 
         $response = $this
             ->actingAs($user)
             ->post(route('transactions.store'), [
                 'company_id' => $company->id,
                 'account_id' => $account->id,
+                'client_id' => $client->id,
                 'transaction_category_id' => $category->id,
                 'amount' => 150.25,
                 'description' => 'Test transaction',
