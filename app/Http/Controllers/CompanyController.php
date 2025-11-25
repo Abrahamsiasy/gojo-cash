@@ -2,78 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCompanyRequest;
+use App\Http\Requests\UpdateCompanyRequest;
 use App\Models\Company;
+use App\Services\CompanyService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CompanyController extends Controller
 {
+    public function __construct(private CompanyService $companyService) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request): View
     {
         $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        $companies = Company::query()
-            ->when($search->isNotEmpty(), static function ($query) use ($search) {
-                $term = $search->toString();
-
-                $query->where(static function ($query) use ($term) {
-                    $query->where('name', 'like', '%'.$term.'%')
-                        ->orWhere('slug', 'like', '%'.$term.'%');
-                });
-            })
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        $headers = [
-            '#',
-            __('Name'),
-            __('Slug'),
-            __('Status'),
-            __('Trial Ends'),
-            __('Created'),
-        ];
-
-        $rows = collect($companies->items())->map(function (Company $company, int $index) use ($companies) {
-            $position = ($companies->firstItem() ?? 1) + $index;
-
-            return [
-                'id' => $company->id,
-                'name' => $company->name,
-                'cells' => [
-                    $position,
-                    $company->name,
-                    $company->slug,
-                    $company->status ? __('Active') : __('Inactive'),
-                    optional($company->trial_ends_at)?->translatedFormat('M j, Y') ?? __('—'),
-                    $company->created_at?->translatedFormat('M j, Y'),
-                ],
-                'actions' => [
-                    'view' => [
-                        'url' => route('companies.show', $company),
-                    ],
-                    'edit' => [
-                        'url' => route('companies.edit', $company),
-                    ],
-                    'delete' => [
-                        'url' => route('companies.destroy', $company),
-                        'confirm' => __('Are you sure you want to delete :company?', ['company' => $company->name]),
-                    ],
-                ],
-            ];
-        });
-
-        return view('admin.companies.index', [
-            'headers' => $headers,
-            'rows' => $rows,
-            'companies' => $companies,
-            'search' => $search->toString(),
-        ]);
+        return view('admin.companies.index', $this->companyService->getIndexData($searchValue));
     }
 
     /**
@@ -88,30 +36,30 @@ class CompanyController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreCompanyRequest $request)
     {
-        //
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:companies,name',
-            'status' => 'boolean',
-            'trial_ends_at' => 'nullable|date',
-        ]);
+        $this->companyService->createCompany($request->validated());
 
-        $validated['slug'] = Str::slug($validated['name']);
-        Company::create($validated);
-
-        return redirect()->route('companies.index')->with('success', 'Company created successfully.');
+        return redirect()->route('companies.index')->with('success', __('Company created successfully.'));
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Company $company)
+    public function show(Request $request, Company $company): View
     {
-        //
-        return view('admin.companies.show', [
-            'company' => $company,
-        ]);
+        $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
+
+        $filters = $request->only(['filter_account_id', 'filter_category_id', 'filter_client_id', 'filter_date_from', 'filter_date_to']);
+
+        // Map filter keys to match service expectations (remove 'filter_' prefix)
+        $mappedFilters = [];
+        foreach ($filters as $key => $value) {
+            $mappedFilters[str_replace('filter_', '', $key)] = $value;
+        }
+
+        return view('admin.companies.show', $this->companyService->prepareShowData($company, $searchValue, 10, $mappedFilters));
     }
 
     /**
@@ -128,17 +76,9 @@ class CompanyController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Company $company)
+    public function update(UpdateCompanyRequest $request, Company $company)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', Rule::unique('companies', 'name')->ignore($company->id)],
-            'status' => ['boolean'],
-            'trial_ends_at' => ['nullable', 'date'],
-        ]);
-
-        $validated['slug'] = Str::slug($validated['name']);
-
-        $company->update($validated);
+        $this->companyService->updateCompany($company, $request->validated());
 
         return redirect()
             ->route('companies.index')
@@ -150,8 +90,7 @@ class CompanyController extends Controller
      */
     public function destroy(Company $company)
     {
-        // delete the company
-        $company->delete();
+        $this->companyService->deleteCompany($company);
 
         return redirect()->route('companies.index')->with('success', __('Company deleted successfully'));
     }

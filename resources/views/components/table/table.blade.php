@@ -7,6 +7,7 @@
         'delete' => false,
     ],
     'paginator' => null,
+    'model' => ''
 ])
 
 @php
@@ -61,18 +62,25 @@
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
                                 @if ($resolvedActions['view'] && Arr::get($row, 'actions.view.url'))
-                                    <x-button tag="a" href="{{ Arr::get($row, 'actions.view.url') }}" class="px-3 py-2 text-xs">
+                                @can('view ' . strtolower($model))
+                                     <x-button tag="a" href="{{ Arr::get($row, 'actions.view.url') }}" class="px-3 py-2 text-xs">
                                         {{ Arr::get($row, 'actions.view.label', __('View')) }}
                                     </x-button>
+                                @endcan
+
                                 @endif
 
                                 @if ($resolvedActions['edit'] && Arr::get($row, 'actions.edit.url'))
-                                    <x-button tag="a" href="{{ Arr::get($row, 'actions.edit.url') }}" class="px-3 py-2 text-xs">
+                                @can('edit ' . strtolower($model))
+                                  <x-button tag="a" href="{{ Arr::get($row, 'actions.edit.url') }}" class="px-3 py-2 text-xs">
                                         {{ Arr::get($row, 'actions.edit.label', __('Edit')) }}
                                     </x-button>
+                                @endcan
+
                                 @endif
 
                                 @if ($resolvedActions['delete'] && Arr::get($row, 'actions.delete.url'))
+                                @can('delete ' . strtolower($model))
                                     <form
                                         method="POST"
                                         action="{{ Arr::get($row, 'actions.delete.url') }}"
@@ -94,7 +102,7 @@
 
                                         <x-modal
                                             id="delete-{{ Arr::get($row, 'id') }}"
-                                            title="{{ Arr::get($row, 'actions.delete.title', __('Delete Company')) }}"
+                                            title="{{ Arr::get($row, 'actions.delete.title', __('Delete :model', ['model' => $model])) }}"
                                             confirmText="{{ Arr::get($row, 'actions.delete.confirmText', __('Delete')) }}"
                                             cancelText="{{ Arr::get($row, 'actions.delete.cancelText', __('Cancel')) }}"
                                             confirmColor="red"
@@ -103,6 +111,7 @@
                                         </x-modal>
 
                                     </form>
+                                @endcan
                                 @endif
                             </div>
                         </td>

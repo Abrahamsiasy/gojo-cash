@@ -1,11 +1,18 @@
 <x-layouts.app>
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
-            {{ __('Edit accounts') }}
-        </h1>
-        <p class="mt-1 text-gray-600 dark:text-gray-400">
-            {{ __('Update the accounts details and status.') }}
-        </p>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                {{ __('Edit Account') }}
+            </h1>
+            <p class="mt-1 text-gray-600 dark:text-gray-400">
+                {{ __('Update the account details and status.') }}
+            </p>
+        </div>
+
+        <a href="{{ route('accounts.index') }}"
+            class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+            ← {{ __('Back to accounts') }}
+        </a>
     </div>
     <div class="grid grid-cols-1 gap-4">
         <form method="POST" action="{{ route('accounts.update', $account->id) }}" class="space-y-4 md:space-y-0 md:grid md:grid-cols-2 md:gap-4">

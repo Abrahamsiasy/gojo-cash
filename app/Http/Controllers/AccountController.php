@@ -2,123 +2,50 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AccountType;
+use App\Http\Requests\StoreAccountRequest;
+use App\Http\Requests\UpdateAccountRequest;
 use App\Models\Account;
-use App\Models\Company;
+use App\Services\AccountService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AccountController extends Controller
 {
+    public function __construct(private AccountService $accountService) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request): View
     {
         $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        $accounts = Account::query()
-            ->when($search->isNotEmpty(), static function ($query) use ($search) {
-                $term = $search->toString();
-
-                $query->where(static function ($query) use ($term) {
-                    $query->where('name', 'like', '%'.$term.'%')
-                        ->orWhere('account_number', 'like', '%'.$term.'%')
-                        ->orWhere('bank_name', 'like', '%'.$term.'%');
-                });
-            })
-            ->latest()
-            ->paginate(15)
-            ->withQueryString();
-
-        $headers = [
-            '#',
-            __('Name'),
-            __('Account Number'),
-            __('Componay'),
-            __('Type'),
-            __('Bank Name'),
-            __('Balance'),
-            __('Active'),
-            __('Created At'),
-        ];
-
-        $rows = collect($accounts->items())->map(function (Account $account, int $index) use ($accounts) {
-            $position = ($accounts->firstItem() ?? 1) + $index;
-
-            return [
-                'id' => $account->id,
-                'name' => $account->name,
-                'cells' => [
-                    $position,
-                    $account->name,
-                    $account->account_number ?? __('—'),
-                    $account->company->name ?? __('—'),
-                    $account->account_type?->value ?? __('—'), // Enum value
-                    $account->bank_name ?? __('—'),
-                    number_format((float) $account->balance, 2),
-                    $account->is_active ? __('Yes') : __('No'),
-                    $account->created_at?->translatedFormat('M j, Y'),
-                ],
-                'actions' => [
-                    'view' => [
-                        'url' => route('accounts.show', $account),
-                    ],
-                    'edit' => [
-                        'url' => route('accounts.edit', $account),
-                    ],
-                    'delete' => [
-                        'url' => route('accounts.destroy', $account),
-                        'confirm' => __('Are you sure you want to delete :account?', ['account' => $account->name]),
-                    ],
-                ],
-            ];
-        });
-
-        return view('admin.accounts.index', [
-            'headers' => $headers,
-            'rows' => $rows,
-            'search' => $search->toString(),
-            'accounts' => $accounts, // Pass paginator if needed for links
-        ]);
+        return view('admin.accounts.index', $this->accountService->getAccountIndexData($searchValue));
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(): View
     {
-        // Companies: key = id, value = name
-        $companies = Company::orderBy('name')->pluck('name', 'id')->toArray();
-
-        // Account types: key = enum value, value = human-readable name
-        $accountTypeOptions = collect(AccountType::cases())
-            ->mapWithKeys(fn (AccountType $type) => [
-                $type->value => Str::headline($type->name), // 'Cash' for 'cash', etc.
-            ])
-            ->toArray();
-
-        return view('admin.accounts.create', compact('companies', 'accountTypeOptions'));
+        return view('admin.accounts.create', $this->accountService->prepareCreateFormData());
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreAccountRequest $request)
     {
-        //
-        // dd($request->all());
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'account_number' => ['required', 'string', 'max:255'],
-            'company_id' => ['required', 'exists:companies,id'],
-            'account_type' => ['required', 'string', 'max:255'],
-            'bank_name' => ['required', 'string', 'max:255'],
-            'balance' => ['required', 'numeric', 'min:0'],
-            'opening_balance' => ['required', 'numeric', 'min:0'],
-        ]);
-        $account = Account::create($validated);
+        $account = $this->accountService->createAccount($request->validated());
+
+        if ($request->boolean('from_company')) {
+            return redirect()
+                ->route('companies.show', $account->company_id)
+                ->with('success', __('Account created successfully.'));
+        }
 
         return redirect()->route('accounts.index')->with('success', __('Account created successfully.'));
     }
@@ -126,48 +53,40 @@ class AccountController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Account $account): View
+    public function show(Request $request, Account $account): View
     {
-        $account->load('company');
+        $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
-        return view('admin.accounts.show', [
-            'account' => $account,
-        ]);
+        $filters = [
+            'type' => $request->string('filter_type')->toString() ?: null,
+            'status' => $request->string('filter_status')->toString() ?: null,
+            'category_id' => $request->integer('filter_category_id') ?: null,
+            'client_id' => $request->integer('filter_client_id') ?: null,
+            'date_from' => $request->string('filter_date_from')->toString() ?: null,
+            'date_to' => $request->string('filter_date_to')->toString() ?: null,
+        ];
+
+        // Remove empty filter values
+        $filters = array_filter($filters, static fn ($value) => $value !== null && $value !== '');
+
+        return view('admin.accounts.show', $this->accountService->prepareShowData($account, $searchValue, 15, $filters));
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Account $account)
+    public function edit(Account $account): View
     {
-        // retrun compnies since it shoiuyd use these as well and accountTypeOptions
-        $companies = Company::orderBy('name')->pluck('name', 'id')->toArray();
-        $accountTypeOptions = collect(AccountType::cases())
-            ->mapWithKeys(fn (AccountType $type) => [
-                $type->value => Str::headline($type->name),
-            ])
-            ->toArray();
-
-        return view('admin.accounts.edit', compact('account', 'companies', 'accountTypeOptions'));
+        return view('admin.accounts.edit', $this->accountService->prepareEditFormData($account));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Account $account)
+    public function update(UpdateAccountRequest $request, Account $account)
     {
-
-        // dd($request->all());
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'company_id' => ['required', 'exists:companies,id'],
-            'account_number' => ['required', 'string', 'max:255'],
-            'account_type' => ['required', 'string', 'max:255'],
-            'bank_name' => ['required', 'string', 'max:255'],
-            'balance' => ['required', 'numeric', 'min:0'],
-            'opening_balance' => ['required', 'numeric', 'min:0'],
-        ]);
-        $account->update($validated);
+        $this->accountService->updateAccount($account, $request->validated());
 
         return redirect()->route('accounts.index')->with('success', __('Account updated successfully.'));
     }
@@ -177,8 +96,81 @@ class AccountController extends Controller
      */
     public function destroy(Account $account)
     {
-        $account->delete();
+        $this->accountService->deleteAccount($account);
 
         return redirect()->route('accounts.index')->with('success', __('Account deleted successfully.'));
+    }
+
+    /**
+     * Export transactions to CSV.
+     */
+    public function exportTransactions(Request $request, Account $account): StreamedResponse
+    {
+        $search = $request->string('search');
+        $searchValue = $search->isNotEmpty() ? $search->toString() : null;
+
+        $filters = [
+            'type' => $request->string('filter_type')->toString() ?: null,
+            'status' => $request->string('filter_status')->toString() ?: null,
+            'category_id' => $request->integer('filter_category_id') ?: null,
+            'client_id' => $request->integer('filter_client_id') ?: null,
+            'date_from' => $request->string('filter_date_from')->toString() ?: null,
+            'date_to' => $request->string('filter_date_to')->toString() ?: null,
+        ];
+
+        // Remove empty filter values
+        $filters = array_filter($filters, static fn ($value) => $value !== null && $value !== '');
+
+        $transactions = $this->accountService->getTransactionsForExport($account, $searchValue, $filters);
+
+        $filename = 'transactions_'.Str::slug($account->name).'_'.now()->format('Y-m-d_His').'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = static function () use ($transactions) {
+            $file = fopen('php://output', 'w');
+
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            // Headers
+            fputcsv($file, [
+                '#',
+                __('Type'),
+                __('Transaction ID'),
+                __('Amount'),
+                __('Category'),
+                __('Client'),
+                __('Status'),
+                __('Date'),
+                __('Description'),
+                __('Created By'),
+                __('Approved By'),
+            ]);
+
+            // Data rows
+            foreach ($transactions as $index => $transaction) {
+                fputcsv($file, [
+                    $index + 1,
+                    ucfirst($transaction->type),
+                    $transaction->transaction_id ?? '',
+                    number_format((float) $transaction->amount, 2),
+                    $transaction->category->name ?? '',
+                    $transaction->client->name ?? '',
+                    ucfirst($transaction->status ?? 'pending'),
+                    $transaction->date?->format('Y-m-d') ?? '',
+                    $transaction->description ?? '',
+                    $transaction->creator->name ?? '',
+                    $transaction->approver->name ?? '',
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

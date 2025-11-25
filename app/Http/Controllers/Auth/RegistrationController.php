@@ -14,9 +14,10 @@ use Illuminate\View\View;
 
 class RegistrationController extends Controller
 {
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
-        return view('auth.register');
+        return redirect()->route('login')->with('error', 'You are not allowed to register. Please contact the administrator.');
+        // return view('auth.register');
     }
 
     public function store(Request $request): RedirectResponse
