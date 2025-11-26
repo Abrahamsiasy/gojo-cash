@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class TransactionService
+class TransactionService extends BaseService
 {
     public function getIndexData(?string $search, int $perPage = 15): array
     {
@@ -29,6 +29,7 @@ class TransactionService
     public function paginateTransactions(?string $search, int $perPage = 15): LengthAwarePaginator
     {
         return Transaction::with(['company', 'account', 'relatedAccount', 'category', 'creator', 'approver'])
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('description', 'like', "%{$search}%")
@@ -69,6 +70,7 @@ class TransactionService
             return [
                 'id' => $transaction->id,
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
+                'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $transaction->transaction_id ?? __('—'),
@@ -101,9 +103,10 @@ class TransactionService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => Company::orderBy('name')->pluck('name', 'id')->toArray(),
+            'companies' => $this->getCompaniesForSelect(),
             'accounts' => $this->getAccountsForSelect(),
-            'categories' => $this->getCategoryOptions(),
+            'categories' => $this->getCategoriesForSelect(),
+            'clients' => $this->getClientsForSelect(),
             'transactionTypes' => $this->getTransactionTypes(),
             'statuses' => $this->getStatusOptions(),
         ];
@@ -111,6 +114,14 @@ class TransactionService
 
     public function recordTransaction(array $data): Transaction
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return DB::transaction(function () use ($data) {
             $data['date'] = $data['date'] ?? now();
             $companyId = $data['company_id'];
@@ -234,33 +245,6 @@ class TransactionService
         ]);
 
         return $transfer;
-    }
-
-    protected function getAccountsForSelect(): array
-    {
-        return Account::with('company')
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(static function (Account $account): array {
-                $companyName = $account->company->name ?? 'No Company';
-
-                return [
-                    $account->id => $account->name.' ('.$companyName.')',
-                ];
-            })
-            ->toArray();
-    }
-
-    protected function getCategoryOptions(): array
-    {
-        return TransactionCategory::orderBy('name')
-            ->get()
-            ->mapWithKeys(static function (TransactionCategory $category): array {
-                return [
-                    $category->id => $category->name.' ('.$category->type.')',
-                ];
-            })
-            ->toArray();
     }
 
     protected function getTransactionTypes(): array

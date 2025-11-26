@@ -62,56 +62,93 @@
                         <td class="px-6 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
                                 @if ($resolvedActions['view'] && Arr::get($row, 'actions.view.url'))
-                                @can('view ' . strtolower($model))
-                                     <x-button tag="a" href="{{ Arr::get($row, 'actions.view.url') }}" class="px-3 py-2 text-xs">
-                                        {{ Arr::get($row, 'actions.view.label', __('View')) }}
-                                    </x-button>
-                                @endcan
-
+                                    @php
+                                        $modelInstance = Arr::get($row, 'model');
+                                        $user = auth()->user();
+                                        if ($user) {
+                                            try {
+                                                $canView = $modelInstance ? $user->can('view', $modelInstance) : $user->can('view ' . strtolower($model));
+                                            } catch (\Exception $e) {
+                                                $canView = $user->can('view ' . strtolower($model));
+                                            }
+                                        } else {
+                                            $canView = false;
+                                        }
+                                    @endphp
+                                    @if ($canView)
+                                        <x-button tag="a" href="{{ Arr::get($row, 'actions.view.url') }}" class="px-3 py-2 text-xs">
+                                            {{ Arr::get($row, 'actions.view.label', __('View')) }}
+                                        </x-button>
+                                    @endif
                                 @endif
 
                                 @if ($resolvedActions['edit'] && Arr::get($row, 'actions.edit.url'))
-                                @can('edit ' . strtolower($model))
-                                  <x-button tag="a" href="{{ Arr::get($row, 'actions.edit.url') }}" class="px-3 py-2 text-xs">
-                                        {{ Arr::get($row, 'actions.edit.label', __('Edit')) }}
-                                    </x-button>
-                                @endcan
-
+                                    @php
+                                        $modelInstance = Arr::get($row, 'model');
+                                        $user = auth()->user();
+                                        if ($user) {
+                                            try {
+                                                $canEdit = $modelInstance ? $user->can('update', $modelInstance) : $user->can('edit ' . strtolower($model));
+                                            } catch (\Exception $e) {
+                                                $canEdit = $user->can('edit ' . strtolower($model));
+                                            }
+                                        } else {
+                                            $canEdit = false;
+                                        }
+                                    @endphp
+                                    @if ($canEdit)
+                                        <x-button tag="a" href="{{ Arr::get($row, 'actions.edit.url') }}" class="px-3 py-2 text-xs">
+                                            {{ Arr::get($row, 'actions.edit.label', __('Edit')) }}
+                                        </x-button>
+                                    @endif
                                 @endif
 
                                 @if ($resolvedActions['delete'] && Arr::get($row, 'actions.delete.url'))
-                                @can('delete ' . strtolower($model))
-                                    <form
-                                        method="POST"
-                                        action="{{ Arr::get($row, 'actions.delete.url') }}"
-                                        class="inline"
-                                        x-data
-                                        x-on:modal-confirm.window="if ($event.detail?.id === 'delete-{{ Arr::get($row, 'id') }}') { $el.submit() }"
-                                    >
-                                        @csrf
-                                        @method('DELETE')
-
-                                        <x-button
-                                            type="danger"
-                                            buttonType="button"
-                                            class="px-3 py-2 text-xs"
-                                            @click="$dispatch('open-modal', { id: 'delete-{{ Arr::get($row, 'id') }}' })"
+                                    @php
+                                        $modelInstance = Arr::get($row, 'model');
+                                        $user = auth()->user();
+                                        if ($user) {
+                                            try {
+                                                $canDelete = $modelInstance ? $user->can('delete', $modelInstance) : $user->can('delete ' . strtolower($model));
+                                            } catch (\Exception $e) {
+                                                $canDelete = $user->can('delete ' . strtolower($model));
+                                            }
+                                        } else {
+                                            $canDelete = false;
+                                        }
+                                    @endphp
+                                    @if ($canDelete)
+                                        <form
+                                            method="POST"
+                                            action="{{ Arr::get($row, 'actions.delete.url') }}"
+                                            class="inline"
+                                            x-data
+                                            x-on:modal-confirm.window="if ($event.detail?.id === 'delete-{{ Arr::get($row, 'id') }}') { $el.submit() }"
                                         >
-                                            {{ Arr::get($row, 'actions.delete.label', __('Delete')) }}
-                                        </x-button>
+                                            @csrf
+                                            @method('DELETE')
 
-                                        <x-modal
-                                            id="delete-{{ Arr::get($row, 'id') }}"
-                                            title="{{ Arr::get($row, 'actions.delete.title', __('Delete :model', ['model' => $model])) }}"
-                                            confirmText="{{ Arr::get($row, 'actions.delete.confirmText', __('Delete')) }}"
-                                            cancelText="{{ Arr::get($row, 'actions.delete.cancelText', __('Cancel')) }}"
-                                            confirmColor="red"
-                                        >
-                                            {{ Arr::get($row, 'actions.delete.confirm', __('Are you sure you want to delete :name?', ['name' => Arr::get($row, 'name')])) }}
-                                        </x-modal>
+                                            <x-button
+                                                type="danger"
+                                                buttonType="button"
+                                                class="px-3 py-2 text-xs"
+                                                @click="$dispatch('open-modal', { id: 'delete-{{ Arr::get($row, 'id') }}' })"
+                                            >
+                                                {{ Arr::get($row, 'actions.delete.label', __('Delete')) }}
+                                            </x-button>
 
-                                    </form>
-                                @endcan
+                                            <x-modal
+                                                id="delete-{{ Arr::get($row, 'id') }}"
+                                                title="{{ Arr::get($row, 'actions.delete.title', __('Delete :model', ['model' => $model])) }}"
+                                                confirmText="{{ Arr::get($row, 'actions.delete.confirmText', __('Delete')) }}"
+                                                cancelText="{{ Arr::get($row, 'actions.delete.cancelText', __('Cancel')) }}"
+                                                confirmColor="red"
+                                            >
+                                                {{ Arr::get($row, 'actions.delete.confirm', __('Are you sure you want to delete :name?', ['name' => Arr::get($row, 'name')])) }}
+                                            </x-modal>
+
+                                        </form>
+                                    @endif
                                 @endif
                             </div>
                         </td>

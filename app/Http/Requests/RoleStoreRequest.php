@@ -23,9 +23,9 @@ class RoleStoreRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', 'unique:roles,name'],
-            'permissions' => ['array'],
+            'permissions' => ['nullable', 'array'],
             'permissions.*' => ['string', 'exists:permissions,name'],
-            'check_all' => ['nullable', 'integer'],
+            'check_all' => ['nullable'],
         ];
     }
 }

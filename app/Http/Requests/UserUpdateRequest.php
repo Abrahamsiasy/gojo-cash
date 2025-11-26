@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class UserStoreRequest extends FormRequest
+class UserUpdateRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -21,19 +23,25 @@ class UserStoreRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->route('user') ?? $this->route('id');
+        $userId = $user instanceof User ? $user->id : $user;
+
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique(User::class)->ignore($userId),
+            ],
             'role' => ['required', 'string', 'exists:roles,id'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
         ];
-        // Company validation: required for non-super-admin, optional for super-admin
-        $user = $this->user();
-        if ($user && $user->hasRole('super-admin')) {
+
+        // Only super-admin can change company_id
+        if ($this->user() && $this->user()->hasRole('super-admin')) {
             $rules['company_id'] = ['nullable', 'exists:companies,id'];
-        } else {
-            $rules['company_id'] = ['nullable', 'exists:companies,id'];
-            // Will be auto-assigned in service if not provided
         }
 
         return $rules;

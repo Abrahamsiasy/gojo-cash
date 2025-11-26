@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\Client;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Policies\Concerns\ChecksCompanyAccess;
 
-class ClientPolicy
+class TransactionPolicy
 {
     use ChecksCompanyAccess;
 
@@ -15,15 +15,15 @@ class ClientPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $this->hasPermission($user, 'list client');
+        return $this->hasPermission($user, 'list transaction');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Client $client): bool
+    public function view(User $user, Transaction $transaction): bool
     {
-        return $this->canAccess($user, 'view client', $client->company_id);
+        return $this->canAccess($user, 'view transaction', $transaction->company_id);
     }
 
     /**
@@ -31,29 +31,29 @@ class ClientPolicy
      */
     public function create(User $user): bool
     {
-        return $this->hasPermission($user, 'create client');
+        return $this->hasPermission($user, 'create transaction');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Client $client): bool
+    public function update(User $user, Transaction $transaction): bool
     {
-        return $this->canAccess($user, 'edit client', $client->company_id);
+        return $this->canAccess($user, 'edit transaction', $transaction->company_id);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Client $client): bool
+    public function delete(User $user, Transaction $transaction): bool
     {
-        return $this->canAccess($user, 'delete client', $client->company_id);
+        return $this->canAccess($user, 'delete transaction', $transaction->company_id);
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Client $client): bool
+    public function restore(User $user, Transaction $transaction): bool
     {
         return false;
     }
@@ -61,7 +61,7 @@ class ClientPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Client $client): bool
+    public function forceDelete(User $user, Transaction $transaction): bool
     {
         return false;
     }

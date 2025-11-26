@@ -18,6 +18,7 @@ class BankController extends Controller
      */
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Bank::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -29,6 +30,7 @@ class BankController extends Controller
      */
     public function create()
     {
+        $this->authorize('create', Bank::class);
         return view('admin.banks.create');
     }
 
@@ -37,6 +39,7 @@ class BankController extends Controller
      */
     public function store(StoreBankRequest $request)
     {
+        $this->authorize('create', Bank::class);
         $this->bankService->createBank($request->validated());
 
         return redirect()->route('banks.index')->with('success', __('Bank created successfully.'));
@@ -47,6 +50,8 @@ class BankController extends Controller
      */
     public function show(Bank $bank)
     {
+        $this->authorize('view', $bank);
+
         return view('admin.banks.show', [
             'bank' => $bank,
         ]);
@@ -57,6 +62,8 @@ class BankController extends Controller
      */
     public function edit(Bank $bank)
     {
+        $this->authorize('update', $bank);
+
         return view('admin.banks.edit', [
             'bank' => $bank,
         ]);
@@ -67,6 +74,7 @@ class BankController extends Controller
      */
     public function update(UpdateBankRequest $request, Bank $bank)
     {
+        $this->authorize('update', $bank);
         $this->bankService->updateBank($bank, $request->validated());
 
         return redirect()->route('banks.index')->with('success', __('Bank updated successfully.'));
@@ -77,6 +85,7 @@ class BankController extends Controller
      */
     public function destroy(Bank $bank)
     {
+        $this->authorize('delete', $bank);
         $this->bankService->deleteBank($bank);
 
         return redirect()->route('banks.index')->with('success', __('Bank deleted successfully.'));

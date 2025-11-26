@@ -20,6 +20,7 @@ class PermissionSeeder extends Seeder
             'Bank',
             'Client',
             'TransactionCategory',
+            'Transaction'
         ];
 
         $actions = ['list', 'view', 'create', 'edit', 'delete'];

@@ -2,11 +2,11 @@
 
 namespace App\Policies;
 
-use App\Models\Client;
+use App\Models\Company;
 use App\Models\User;
 use App\Policies\Concerns\ChecksCompanyAccess;
 
-class ClientPolicy
+class CompanyPolicy
 {
     use ChecksCompanyAccess;
 
@@ -15,15 +15,15 @@ class ClientPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $this->hasPermission($user, 'list client');
+        return $this->hasPermission($user, 'list company');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Client $client): bool
+    public function view(User $user, Company $company): bool
     {
-        return $this->canAccess($user, 'view client', $client->company_id);
+        return $this->canAccess($user, 'view company', $company->id);
     }
 
     /**
@@ -31,29 +31,31 @@ class ClientPolicy
      */
     public function create(User $user): bool
     {
-        return $this->hasPermission($user, 'create client');
+        // Only super-admin can create companies
+        return $user->hasRole('super-admin') && $this->hasPermission($user, 'create company');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Client $client): bool
+    public function update(User $user, Company $company): bool
     {
-        return $this->canAccess($user, 'edit client', $client->company_id);
+        return $this->canAccess($user, 'edit company', $company->id);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Client $client): bool
+    public function delete(User $user, Company $company): bool
     {
-        return $this->canAccess($user, 'delete client', $client->company_id);
+        // Only super-admin can delete companies
+        return $user->hasRole('super-admin') && $this->hasPermission($user, 'delete company');
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Client $client): bool
+    public function restore(User $user, Company $company): bool
     {
         return false;
     }
@@ -61,7 +63,7 @@ class ClientPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Client $client): bool
+    public function forceDelete(User $user, Company $company): bool
     {
         return false;
     }

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -19,25 +18,21 @@ class RoleService
             'rows' => $this->buildRoleRows($roles),
             'roles' => $roles,
             'search' => $search ?? '',
-            'model' => 'Role'
+            'model' => 'Role',
         ];
     }
+
     public function paginateRoles(?string $search, int $perPage = 15): LengthAwarePaginator
     {
         return Role::query()
             ->when(! empty($search), static function ($query) use ($search) {
-                $query->where(static function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('email', 'like', '%' . $search . '%')
-                        ->orWhereHas('company', static function ($clientQuery) use ($search) {
-                            $clientQuery->where('name', 'like', '%' . $search . '%');
-                        });
-                });
+                $query->where('name', 'like', '%'.$search.'%');
             })
             ->latest()
             ->paginate($perPage)
             ->withQueryString();
     }
+
     public function getIndexHeaders(): array
     {
         return [
@@ -46,6 +41,7 @@ class RoleService
             __('Created At'),
         ];
     }
+
     public function buildRoleRows(LengthAwarePaginator $roles): Collection
     {
         return collect($roles->items())->map(function (Role $role, int $index) use ($roles) {
@@ -54,6 +50,7 @@ class RoleService
             return [
                 'id' => $role->id,
                 'name' => $role->name,
+                'model' => $role, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $role->name,
@@ -74,17 +71,22 @@ class RoleService
             ];
         });
     }
+
     public function prepareCreateFormData()
     {
         return Permission::all();
     }
+
     public function createRole(string $name, array $permissions): Role
     {
-        $role = Role::create(['name' => Str::slug($name)]);
-        $role->syncPermissions($permissions);
+        $role = Role::create(['name' => $name]);
+        if (! empty($permissions)) {
+            $role->syncPermissions($permissions);
+        }
 
         return $role;
     }
+
     public function prepareEditFormData(Role $role): array
     {
         $permissions = Permission::all();
@@ -96,14 +98,16 @@ class RoleService
             'rolePermissions' => $rolePermissions,
         ];
     }
+
     public function updateRole(Role $role, string $name, array $permissions): Role
     {
-        $role->name = Str::slug($name);
+        $role->name = $name;
         $role->save();
-        $role->syncPermissions($permissions);
+        $role->syncPermissions($permissions ?? []);
 
         return $role;
     }
+
     public function deleteRole(Role $role): void
     {
         $role->delete();

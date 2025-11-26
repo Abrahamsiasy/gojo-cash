@@ -20,6 +20,7 @@ class AccountController extends Controller
      */
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Account::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -31,6 +32,7 @@ class AccountController extends Controller
      */
     public function create(): View
     {
+        $this->authorize('create', Account::class);
         return view('admin.accounts.create', $this->accountService->prepareCreateFormData());
     }
 
@@ -39,6 +41,7 @@ class AccountController extends Controller
      */
     public function store(StoreAccountRequest $request)
     {
+        $this->authorize('create', Account::class);
         $account = $this->accountService->createAccount($request->validated());
 
         if ($request->boolean('from_company')) {
@@ -55,6 +58,7 @@ class AccountController extends Controller
      */
     public function show(Request $request, Account $account): View
     {
+        $this->authorize('view', $account);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -78,6 +82,7 @@ class AccountController extends Controller
      */
     public function edit(Account $account): View
     {
+        $this->authorize('update', $account);
         return view('admin.accounts.edit', $this->accountService->prepareEditFormData($account));
     }
 
@@ -86,6 +91,7 @@ class AccountController extends Controller
      */
     public function update(UpdateAccountRequest $request, Account $account)
     {
+        $this->authorize('update', $account);
         $this->accountService->updateAccount($account, $request->validated());
 
         return redirect()->route('accounts.index')->with('success', __('Account updated successfully.'));
@@ -96,6 +102,7 @@ class AccountController extends Controller
      */
     public function destroy(Account $account)
     {
+        $this->authorize('delete', $account);
         $this->accountService->deleteAccount($account);
 
         return redirect()->route('accounts.index')->with('success', __('Account deleted successfully.'));
@@ -106,6 +113,7 @@ class AccountController extends Controller
      */
     public function exportTransactions(Request $request, Account $account): StreamedResponse
     {
+        $this->authorize('view', $account);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 

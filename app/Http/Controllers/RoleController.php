@@ -18,7 +18,7 @@ class RoleController extends Controller
 
     public function index(Request $request): View
     {
-        $this->authorize('list role');
+        $this->authorize('viewAny', Role::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -30,20 +30,22 @@ class RoleController extends Controller
      */
     public function create(): View
     {
-        $this->authorize('create role');
+        $this->authorize('create', Role::class);
         $permissions = $this->roleService->prepareCreateFormData();
+
         return view('admin.roles.create', compact('permissions'));
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(RoleStoreRequest $request)
     {
-        dd($request->all());
-        $this->authorize('create role');
+        $this->authorize('create', Role::class);
         $validated = $request->validated();
-        $this->roleService->createRole($validated['name'], $validated['permissions'] ?? []);
+        $permissions = $validated['permissions'] ?? [];
+        $this->roleService->createRole($validated['name'], $permissions);
+
         return redirect()->route('roles.index')->with('success', __('Role created successfully.'));
     }
 
@@ -52,7 +54,9 @@ class RoleController extends Controller
      */
     public function show(string $id)
     {
-        $this->authorize('view role');
+        $role = Role::findOrFail($id);
+        $this->authorize('view', $role);
+        // TODO: Return view when show view is implemented
     }
 
     /**
@@ -60,8 +64,8 @@ class RoleController extends Controller
      */
     public function edit(string $id)
     {
-        $this->authorize('edit role');
         $role = Role::findOrFail($id);
+        $this->authorize('update', $role);
         return view('admin.roles.edit', $this->roleService->prepareEditFormData($role));
     }
 
@@ -70,11 +74,11 @@ class RoleController extends Controller
      */
     public function update(UpdateRoleRequest $request, string $id)
     {
-        dd($request->all());
-        $this->authorize('edit role');
-        $validated = $request->validated();
         $role = Role::findOrFail($id);
-        $this->roleService->updateRole($role, $validated['name'], $validated['permissions'] ?? []);
+        $this->authorize('update', $role);
+        $validated = $request->validated();
+        $permissions = $validated['permissions'] ?? [];
+        $this->roleService->updateRole($role, $validated['name'], $permissions);
         return redirect()->route('roles.index')->with('success', __('Role updated successfully.'));
     }
 
@@ -83,11 +87,8 @@ class RoleController extends Controller
      */
     public function destroy(string $id)
     {
-        $this->authorize('delete role');
         $role = Role::findOrFail($id);
-        if ($role->name === 'super-admin') {
-            return redirect()->route('roles.index')->with('error', __('Cannot delete protected role super-admin.'));
-        }
+        $this->authorize('delete', $role);
         $this->roleService->deleteRole($role);
         return redirect()->route('roles.index')->with('success', __('Role deleted successfully.'));
     }

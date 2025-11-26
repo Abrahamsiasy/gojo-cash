@@ -13,7 +13,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
-class CompanyService
+class CompanyService extends BaseService
 {
     public function getIndexData(?string $search, int $perPage = 15): array
     {
@@ -29,12 +29,18 @@ class CompanyService
 
     public function paginateCompanies(?string $search, int $perPage = 15): LengthAwarePaginator
     {
+        /** @var \App\Models\User|null $user */
+        $user = \Illuminate\Support\Facades\Auth::user();
+
         return Company::query()
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('slug', 'like', '%' . $search . '%');
+                    $innerQuery->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('slug', 'like', '%'.$search.'%');
                 });
+            })
+            ->when($user && ! $user->hasRole('super-admin') && $user->company_id, function ($query) use ($user) {
+                $query->where('id', $user->company_id);
             })
             ->latest()
             ->paginate($perPage)
@@ -61,6 +67,7 @@ class CompanyService
             return [
                 'id' => $company->id,
                 'name' => $company->name,
+                'model' => $company, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $company->name,
@@ -162,10 +169,10 @@ class CompanyService
             ->with(['bank', 'company'])
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
-                    $innerQuery->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('account_number', 'like', '%' . $search . '%')
+                    $innerQuery->where('name', 'like', '%'.$search.'%')
+                        ->orWhere('account_number', 'like', '%'.$search.'%')
                         ->orWhereHas('bank', static function ($bankQuery) use ($search) {
-                            $bankQuery->where('name', 'like', '%' . $search . '%');
+                            $bankQuery->where('name', 'like', '%'.$search.'%');
                         });
                 });
             })
@@ -196,6 +203,7 @@ class CompanyService
             return [
                 'id' => $account->id,
                 'name' => $account->name,
+                'model' => $account, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $account->name,
@@ -253,7 +261,7 @@ class CompanyService
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [
-                    $category->id => $category->name . ' (' . $category->type . ')',
+                    $category->id => $category->name.' ('.$category->type.')',
                 ];
             })
             ->toArray();
@@ -270,7 +278,7 @@ class CompanyService
                 $companyName = $account->company->name ?? __('—');
 
                 return [
-                    $account->id => $account->name . ' (' . $companyName . ')',
+                    $account->id => $account->name.' ('.$companyName.')',
                 ];
             })
             ->toArray();
@@ -300,9 +308,14 @@ class CompanyService
     {
         return Bank::orderBy('name')->pluck('name', 'id')->toArray();
     }
+
     public function getClients(): array
     {
-        return Client::orderBy('name')->pluck('name', 'id')->toArray();
+        return Client::query()
+            ->forCompany() // Filter by company
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     public function getIncomeExpenseChartData(Company $company, array $filters = []): array
@@ -375,7 +388,7 @@ class CompanyService
 
         return [
             'labels' => $data->pluck('name')->toArray(),
-            'data' => $data->pluck('total')->map(fn($val) => (float) $val)->toArray(),
+            'data' => $data->pluck('total')->map(fn ($val) => (float) $val)->toArray(),
         ];
     }
 
@@ -395,7 +408,7 @@ class CompanyService
 
         return [
             'labels' => $data->pluck('name')->toArray(),
-            'data' => $data->pluck('total')->map(fn($val) => (float) $val)->toArray(),
+            'data' => $data->pluck('total')->map(fn ($val) => (float) $val)->toArray(),
         ];
     }
 
@@ -414,7 +427,7 @@ class CompanyService
 
         return [
             'labels' => $data->pluck('name')->toArray(),
-            'data' => $data->pluck('count')->map(fn($val) => (int) $val)->toArray(),
+            'data' => $data->pluck('count')->map(fn ($val) => (int) $val)->toArray(),
         ];
     }
 
@@ -428,9 +441,9 @@ class CompanyService
             ->groupBy('type')
             ->get();
 
-        $labels = $data->pluck('type')->map(fn($type) => ucfirst($type))->toArray();
-        $counts = $data->pluck('count')->map(fn($val) => (int) $val)->toArray();
-        $amounts = $data->pluck('total_amount')->map(fn($val) => (float) $val)->toArray();
+        $labels = $data->pluck('type')->map(fn ($type) => ucfirst($type))->toArray();
+        $counts = $data->pluck('count')->map(fn ($val) => (int) $val)->toArray();
+        $amounts = $data->pluck('total_amount')->map(fn ($val) => (float) $val)->toArray();
 
         return [
             'labels' => $labels,

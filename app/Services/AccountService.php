@@ -11,9 +11,10 @@ use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
-class AccountService
+class AccountService extends BaseService
 {
     public function getAccountIndexData(?string $search, int $perPage = 15): array
     {
@@ -31,6 +32,7 @@ class AccountService
     {
         return Account::query()
             ->with(['company', 'bank'])
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('name', 'like', '%'.$search.'%')
@@ -68,6 +70,7 @@ class AccountService
             return [
                 'id' => $account->id,
                 'name' => $account->name,
+                'model' => $account, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $account->name,
@@ -98,7 +101,7 @@ class AccountService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => Company::orderBy('name')->pluck('name', 'id')->toArray(),
+            'companies' => $this->getCompaniesForSelect(),
             'banks' => Bank::orderBy('name')->pluck('name', 'id')->toArray(),
             'accountTypeOptions' => collect(AccountType::cases())
                 ->mapWithKeys(static fn (AccountType $type): array => [
@@ -118,6 +121,14 @@ class AccountService
 
     public function createAccount(array $data): Account
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return Account::create($data);
     }
 
@@ -161,7 +172,7 @@ class AccountService
     {
         $query = Transaction::where('account_id', $account->id);
         $this->applyFilters($query, $filters);
-        
+
         // Clone query for different aggregates to avoid interference if we were doing complex joins,
         // but here we can just get the collection since we need to iterate for top category anyway.
         // However, for performance on large datasets, separate DB queries might be better.
@@ -201,7 +212,7 @@ class AccountService
         $dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : now()->endOfMonth();
 
         $diffInDays = $dateFrom->diffInDays($dateTo);
-        
+
         // Dynamic Grouping: < 90 days -> Day, else -> Month
         $groupBy = $diffInDays <= 90 ? 'day' : 'month';
         $dateFormat = $groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
@@ -211,7 +222,7 @@ class AccountService
         $query = Transaction::where('account_id', $account->id)
             ->whereBetween('date', [$dateFrom, $dateTo])
             ->whereIn('type', ['income', 'expense']);
-            
+
         $this->applyFilters($query, \Illuminate\Support\Arr::except($filters, ['date_from', 'date_to']));
 
         $data = $query->selectRaw("DATE_FORMAT(date, '$dateFormat') as period, type, SUM(amount) as total")
@@ -222,19 +233,19 @@ class AccountService
         $labels = [];
         $incomeData = [];
         $expenseData = [];
-        
+
         // Fill gaps
         $current = $dateFrom->copy();
         while ($current <= $dateTo) {
             $key = $current->format($phpDateFormat);
             $label = $current->format($labelFormat);
-            
+
             $labels[] = $label;
-            
+
             // Find data for this period
             $income = $data->where('period', $key)->where('type', 'income')->first()?->total ?? 0;
             $expense = $data->where('period', $key)->where('type', 'expense')->first()?->total ?? 0;
-            
+
             $incomeData[] = (float) $income;
             $expenseData[] = (float) $expense;
 
@@ -317,6 +328,7 @@ class AccountService
             return [
                 'id' => $transaction->id,
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
+                'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     ucfirst($transaction->type),
@@ -365,11 +377,10 @@ class AccountService
         }
     }
 
-
     public function getTransactionsByCategoryData(Account $account, array $filters = []): Collection
     {
         $query = Transaction::where('account_id', $account->id);
-        
+
         $this->applyFilters($query, $filters);
 
         return $query->whereNotNull('category_id')

@@ -6,8 +6,9 @@ use App\Models\Company;
 use App\Models\TransactionCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
-class TransactionCategoryService
+class TransactionCategoryService extends BaseService
 {
     public function getIndexData(?string $search, int $perPage = 15): array
     {
@@ -25,6 +26,7 @@ class TransactionCategoryService
     {
         return TransactionCategory::query()
             ->with('company')
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where('name', 'like', '%'.$search.'%');
             })
@@ -53,6 +55,7 @@ class TransactionCategoryService
             return [
                 'id' => $category->id,
                 'name' => $category->name,
+                'model' => $category, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $category->name,
@@ -80,7 +83,7 @@ class TransactionCategoryService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => $this->getCompanies(),
+            'companies' => $this->getCompaniesForSelect(),
             'typeOptions' => $this->getTypeOptions(),
         ];
     }
@@ -95,6 +98,14 @@ class TransactionCategoryService
 
     public function createCategory(array $data): TransactionCategory
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return TransactionCategory::create($data);
     }
 
@@ -116,10 +127,5 @@ class TransactionCategoryService
             'income' => __('Income'),
             'expense' => __('Expense'),
         ];
-    }
-
-    public function getCompanies(): array
-    {
-        return Company::orderBy('name')->pluck('name', 'id')->toArray();
     }
 }

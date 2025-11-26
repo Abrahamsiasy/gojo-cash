@@ -2,28 +2,25 @@
 
 namespace App\Policies;
 
-use App\Models\Client;
+use App\Models\Bank;
 use App\Models\User;
-use App\Policies\Concerns\ChecksCompanyAccess;
 
-class ClientPolicy
+class BankPolicy
 {
-    use ChecksCompanyAccess;
-
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $this->hasPermission($user, 'list client');
+        return $user->hasPermissionTo('list bank');
     }
 
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Client $client): bool
+    public function view(User $user, Bank $bank): bool
     {
-        return $this->canAccess($user, 'view client', $client->company_id);
+        return $user->hasPermissionTo('view bank');
     }
 
     /**
@@ -31,29 +28,29 @@ class ClientPolicy
      */
     public function create(User $user): bool
     {
-        return $this->hasPermission($user, 'create client');
+        return $user->hasPermissionTo('create bank');
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Client $client): bool
+    public function update(User $user, Bank $bank): bool
     {
-        return $this->canAccess($user, 'edit client', $client->company_id);
+        return $user->hasPermissionTo('edit bank');
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Client $client): bool
+    public function delete(User $user, Bank $bank): bool
     {
-        return $this->canAccess($user, 'delete client', $client->company_id);
+        return $user->hasPermissionTo('delete bank');
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Client $client): bool
+    public function restore(User $user, Bank $bank): bool
     {
         return false;
     }
@@ -61,7 +58,7 @@ class ClientPolicy
     /**
      * Determine whether the user can permanently delete the model.
      */
-    public function forceDelete(User $user, Client $client): bool
+    public function forceDelete(User $user, Bank $bank): bool
     {
         return false;
     }
