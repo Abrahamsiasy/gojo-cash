@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class InstallController extends Controller
 {
@@ -352,6 +354,21 @@ class InstallController extends Controller
                     ->withErrors(['migrate_error' => 'Some required tables are missing: '.implode(', ', $missingTables).'. Please try again.']);
             }
 
+            // Run PermissionSeeder to create all required permissions
+            try {
+                $seederExitCode = \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                    '--class' => 'PermissionSeeder',
+                    '--force' => true,
+                ]);
+
+                if ($seederExitCode !== 0) {
+                    throw new \Exception('PermissionSeeder returned non-zero exit code: '.$seederExitCode);
+                }
+            } catch (\Exception $seederException) {
+                return back()
+                    ->withErrors(['migrate_error' => 'Migrations completed but PermissionSeeder failed: '.$seederException->getMessage()]);
+            }
+
             // Mark migrations as run
             $migrateFile = storage_path('app/.migrations_run');
             File::put($migrateFile, now()->toDateTimeString());
@@ -360,7 +377,7 @@ class InstallController extends Controller
             \Illuminate\Support\Facades\Artisan::call('config:clear');
 
             return redirect()->route('install.step3')
-                ->with('success', "Database migrations completed successfully! All {$migrationCount} migration(s) ran.");
+                ->with('success', "Database migrations completed successfully! All {$migrationCount} migration(s) ran and permissions have been seeded.");
         } catch (\Exception $e) {
             return back()
                 ->withErrors(['migrate_error' => 'Migration failed: '.$e->getMessage()]);
@@ -380,6 +397,15 @@ class InstallController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        // Create super-admin role if it doesn't exist
+        $role = Role::firstOrCreate(['name' => 'super-admin']);
+
+        // Assign super-admin role to the user
+        $user->assignRole('super-admin');
+
+        // Give all permissions to super-admin role
+        $role->givePermissionTo(Permission::all());
 
         Auth::login($user);
 
@@ -496,7 +522,6 @@ class InstallController extends Controller
         $lockFile = storage_path('app/.installed');
         File::put($lockFile, now()->toDateTimeString());
     }
-    public function testCreateCompany()
-    {
-    }
+
+    public function testCreateCompany() {}
 }
