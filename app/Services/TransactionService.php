@@ -144,6 +144,10 @@ class TransactionService extends BaseService
 
     public function deleteTransaction(Transaction $transaction): void
     {
+        // when delteing it shold undu the balance of the account
+        $account = $transaction->account;
+        $account->balance += $transaction->amount;
+        $account->save();
         $transaction->delete();
     }
 

@@ -24,8 +24,8 @@ class DashboardController extends Controller
             );
         }
 
-        // Regular users must have a company_id
-        if (! $user->company_id) {
+        // Regular users must have a company_id (super-admins bypass this check)
+        if (! $user->hasRole('super-admin') && ! $user->company_id) {
             abort(403, __('You must be assigned to a company to access the dashboard.'));
         }
 
