@@ -60,8 +60,7 @@
                 :options="$accounts" 
                 placeholder="{{ __('Select account') }}"
                 x-model="selectedAccountId"
-                @change="onAccountChange()"
-                required />
+                @change="onAccountChange()" />
         </div>
 
         <div x-show="selectedAccountId && filteredTransactions.length > 0" x-transition>
@@ -95,7 +94,7 @@
                                     </div>
                                     <div class="text-right ml-4">
                                         <span class="text-sm font-semibold text-gray-900 dark:text-gray-100" 
-                                            x-text="new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(transaction.amount || 0)"></span>
+                                            x-text="new Intl.NumberFormat('en-US', { style: 'currency', currency: 'ETB' }).format(transaction.amount || 0)"></span>
                                         <p class="text-xs text-gray-500 dark:text-gray-400" x-text="transaction.date ? new Date(transaction.date).toLocaleDateString() : ''"></p>
                                     </div>
                                 </div>
@@ -115,7 +114,7 @@
                     <div class="text-right">
                         <span class="text-sm text-gray-600 dark:text-gray-400">{{ __('Total Amount') }}:</span>
                         <span class="text-lg font-bold text-blue-600 dark:text-blue-400 ml-2" 
-                            x-text="new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(getTotalAmount())"></span>
+                            x-text="new Intl.NumberFormat('en-US', { style: 'currency', currency: 'ETB' }).format(getTotalAmount())"></span>
                     </div>
                 </div>
             </div>

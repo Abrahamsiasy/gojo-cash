@@ -94,37 +94,11 @@ class InvoiceController extends Controller
         $data = $request->validated();
 
         try {
-            // If transaction_ids is provided, generate from multiple transactions
-            if (! empty($data['transaction_ids'])) {
-                $transactionIds = is_string($data['transaction_ids'])
-                    ? json_decode($data['transaction_ids'], true)
-                    : $data['transaction_ids'];
+            $template = ! empty($data['invoice_template_id'])
+                ? \App\Models\InvoiceTemplate::findOrFail($data['invoice_template_id'])
+                : null;
 
-                if (is_array($transactionIds) && ! empty($transactionIds)) {
-                    $template = ! empty($data['invoice_template_id'])
-                        ? \App\Models\InvoiceTemplate::findOrFail($data['invoice_template_id'])
-                        : null;
-
-                    $invoice = $this->invoiceService->generateFromTransactions($transactionIds, $template);
-                } else {
-                    throw new \RuntimeException(__('At least one transaction must be selected.'));
-                }
-            } elseif (! empty($data['transaction_id'])) {
-                // If single transaction_id is provided, generate from single transaction
-                $transaction = Transaction::findOrFail($data['transaction_id']);
-                $template = ! empty($data['invoice_template_id'])
-                    ? \App\Models\InvoiceTemplate::findOrFail($data['invoice_template_id'])
-                    : null;
-
-                $invoice = $this->invoiceService->generateFromTransaction($transaction, $template);
-            } else {
-                // Generate custom invoice
-                $template = ! empty($data['invoice_template_id'])
-                    ? \App\Models\InvoiceTemplate::findOrFail($data['invoice_template_id'])
-                    : null;
-
-                $invoice = $this->invoiceService->generateCustomInvoice($data, $template);
-            }
+            $invoice = $this->invoiceService->generateCustomInvoice($data, $template);
 
             return redirect()->route('invoices.show', $invoice)
                 ->with('success', __('Invoice generated successfully.'));

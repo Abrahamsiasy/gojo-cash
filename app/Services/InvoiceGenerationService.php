@@ -142,7 +142,7 @@ class InvoiceGenerationService extends BaseService
         $data['subtotal'] = isset($data['subtotal']) && $data['subtotal'] !== null ? (float) $data['subtotal'] : 0;
         $data['tax_amount'] = isset($data['tax_amount']) && $data['tax_amount'] !== null ? (float) $data['tax_amount'] : 0;
         $data['discount_amount'] = isset($data['discount_amount']) && $data['discount_amount'] !== null ? (float) $data['discount_amount'] : 0;
-        $data['currency'] = $data['currency'] ?? 'USD';
+        $data['currency'] = $data['currency'] ?? 'ETB';
         $data['tax_rate'] = isset($data['tax_rate']) && $data['tax_rate'] !== null ? (float) $data['tax_rate'] : null;
 
         // Calculate totals if not provided
@@ -206,7 +206,7 @@ class InvoiceGenerationService extends BaseService
             'tax_amount' => 0,
             'discount_amount' => 0,
             'total_amount' => $transaction->amount,
-            'currency' => 'USD',
+            'currency' => 'ETB',
             'tax_rate' => null,
             'transaction_id' => $transaction->id,
             'terms_and_conditions' => $template->settings['terms_and_conditions'] ?? null,
@@ -264,7 +264,7 @@ class InvoiceGenerationService extends BaseService
             'tax_amount' => 0,
             'discount_amount' => 0,
             'total_amount' => $totalAmount,
-            'currency' => 'USD',
+            'currency' => 'ETB',
             'tax_rate' => null,
             'transaction_id' => $transactions->first()->id, // Store first transaction ID for backward compatibility
             'terms_and_conditions' => $template->settings['terms_and_conditions'] ?? null,
@@ -279,19 +279,37 @@ class InvoiceGenerationService extends BaseService
         $prefix = 'INV';
         $year = now()->year;
 
-        // Get the last invoice number for this company in this year
-        $lastInvoice = Invoice::where('company_id', $companyId)
-            ->whereYear('created_at', $year)
-            ->orderBy('id', 'desc')
-            ->first();
+        return DB::transaction(function () use ($prefix, $year, $companyId) {
+            // Get all invoice numbers for this company in this year
+            $invoiceNumbers = Invoice::where('company_id', $companyId)
+                ->where('invoice_number', 'like', $prefix.'-'.$year.'-%')
+                ->lockForUpdate()
+                ->pluck('invoice_number')
+                ->toArray();
 
-        if ($lastInvoice && preg_match('/'.$prefix.'-(\d{4})-(\d+)/', $lastInvoice->invoice_number, $matches)) {
-            $sequence = (int) $matches[2] + 1;
-        } else {
-            $sequence = 1;
-        }
+            $maxSequence = 0;
+            foreach ($invoiceNumbers as $number) {
+                if (preg_match('/'.$prefix.'-(\d{4})-(\d+)/', $number, $matches)) {
+                    $sequence = (int) $matches[2];
+                    if ($sequence > $maxSequence) {
+                        $maxSequence = $sequence;
+                    }
+                }
+            }
 
-        return sprintf('%s-%d-%04d', $prefix, $year, $sequence);
+            $sequence = $maxSequence + 1;
+
+            // Ensure uniqueness by checking if the number already exists
+            $invoiceNumber = sprintf('%s-%d-%04d', $prefix, $year, $sequence);
+            $attempts = 0;
+            while (Invoice::where('invoice_number', $invoiceNumber)->exists() && $attempts < 100) {
+                $sequence++;
+                $invoiceNumber = sprintf('%s-%d-%04d', $prefix, $year, $sequence);
+                $attempts++;
+            }
+
+            return $invoiceNumber;
+        });
     }
 
     protected function calculateSubtotal(array $items): float

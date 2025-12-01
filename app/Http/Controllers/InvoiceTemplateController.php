@@ -138,7 +138,7 @@ class InvoiceTemplateController extends Controller
             'tax_rate' => 10.00,
             'discount_amount' => 0,
             'total_amount' => 385.00,
-            'currency' => 'USD',
+            'currency' => 'ETB',
         ]);
 
         // Mark as not persisted (so routes won't try to use ID)

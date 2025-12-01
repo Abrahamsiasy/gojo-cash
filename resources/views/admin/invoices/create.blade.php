@@ -49,10 +49,8 @@
                         </span>
                     </div>
                 </label>
-                <label class="flex items-start p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
-                    :class="generateFromTransaction ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20' : ''">
-                    <input type="radio" name="source" value="transaction" x-model="generateFromTransaction" :value="true"
-                        @change="toggleMode()"
+                <label class="flex items-start p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg cursor-not-allowed opacity-50">
+                    <input type="radio" name="source" value="transaction" disabled
                         class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                     <div class="ml-3">
                         <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ __('From Transaction') }}</span>
@@ -210,7 +208,7 @@
 
                     <x-forms.input label="Discount Amount" name="discount_amount" type="number" step="0.01" min="0" placeholder="0.00" />
 
-                    <x-forms.input label="Currency" name="currency" placeholder="USD" value="USD" maxlength="5" />
+                    <x-forms.input label="Currency" name="currency" placeholder="ETB" value="ETB" maxlength="5" />
                 </div>
             </div>
 

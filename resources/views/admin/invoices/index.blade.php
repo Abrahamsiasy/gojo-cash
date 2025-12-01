@@ -73,7 +73,7 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                    {{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency ?? 'USD' }}
+                                    {{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency ?? 'ETB' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                     {{ $invoice->issue_date->format('M j, Y') }}

@@ -42,7 +42,7 @@ return new class extends Migration
             $table->decimal('tax_amount', 15, 2)->default(0);
             $table->decimal('discount_amount', 15, 2)->default(0);
             $table->decimal('total_amount', 15, 2)->default(0);
-            $table->string('currency', 5)->default('USD');
+            $table->string('currency', 5)->default('ETB');
             $table->decimal('tax_rate', 5, 2)->nullable(); // Percentage
 
             // Related transaction (optional - links to existing transaction)
