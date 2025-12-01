@@ -323,7 +323,7 @@ class AccountService extends BaseService
         $currentUser = Auth::user();
 
         return collect($transactions->items())->map(function (Transaction $transaction) use ($currentUser) {
-            // Date & Time: Format as "27 Nov, 2025, 09:21 AM"
+            // Date & Time with optional Transaction ID
             if ($transaction->created_at) {
                 $dateTime = $transaction->created_at->format('j M, Y, h:i A');
             } elseif ($transaction->date) {
@@ -331,6 +331,12 @@ class AccountService extends BaseService
             } else {
                 $dateTime = __('—');
             }
+
+            // Append transaction ID if it exists
+            if (!empty($transaction->transaction_id)) {
+                $dateTime .= ' (ID: ' . $transaction->transaction_id . ')';
+            }
+
 
             // Details: Format as "(Client Name), Description, by You/by User Name"
             $clientName = $transaction->client?->name ?? '';
