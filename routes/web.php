@@ -5,6 +5,8 @@ use App\Http\Controllers\BankController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoiceTemplateController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings;
 use App\Http\Controllers\TransactionCategoryController;
@@ -44,6 +46,17 @@ Route::middleware(['auth'])
         Route::resource('clients', ClientController::class);
         Route::resource('users', UserController::class);
         Route::resource('roles', RoleController::class);
+
+        // Invoice Templates
+        Route::resource('invoice-templates', InvoiceTemplateController::class);
+        Route::get('invoice-templates/{invoiceTemplate}/preview', [InvoiceTemplateController::class, 'preview'])->name('invoice-templates.preview');
+
+        // Invoices
+        Route::resource('invoices', InvoiceController::class);
+        Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+        Route::get('invoices/{invoice}/stream', [InvoiceController::class, 'stream'])->name('invoices.stream');
+        Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
+        Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
 
     });
 

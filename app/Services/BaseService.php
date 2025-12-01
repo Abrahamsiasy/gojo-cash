@@ -14,7 +14,7 @@ abstract class BaseService
      * Get companies for dropdown select.
      * Super-admins see all companies, others see only their company.
      */
-    protected function getCompaniesForSelect(): array
+    public function getCompaniesForSelect(): array
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -37,7 +37,7 @@ abstract class BaseService
      * Get accounts for dropdown select, filtered by company.
      * Super-admins see all accounts, others see only their company's accounts.
      */
-    protected function getAccountsForSelect(): array
+    public function getAccountsForSelect(): array
     {
         /** @var \App\Models\User|null $user */
         $user = Auth::user();
@@ -87,7 +87,7 @@ abstract class BaseService
      * Get clients for dropdown select, filtered by company.
      * Super-admins see all clients, others see only their company's clients.
      */
-    protected function getClientsForSelect(): array
+    public function getClientsForSelect(): array
     {
         return Client::query()
             ->forCompany() // Filter by company

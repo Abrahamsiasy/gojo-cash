@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class PermissionSeeder extends Seeder
 {
@@ -20,16 +21,25 @@ class PermissionSeeder extends Seeder
             'Bank',
             'Client',
             'TransactionCategory',
-            'Transaction'
+            'Transaction',
+            'InvoiceTemplate',
+            'Invoice',
         ];
 
         $actions = ['list', 'view', 'create', 'edit', 'delete'];
 
         foreach ($models as $model) {
             foreach ($actions as $action) {
-                $name = strtolower($action . ' ' . $model);
+                $name = strtolower($action.' '.$model);
                 Permission::firstOrCreate(['name' => $name]);
             }
         }
+
+        // Sync all permissions to super-admin role
+        $role = Role::firstOrCreate(['name' => 'super-admin']);
+        $role->syncPermissions(Permission::all());
+
+        // Clear permission cache
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }

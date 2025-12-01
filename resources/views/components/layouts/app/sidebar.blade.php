@@ -38,6 +38,66 @@
                     </x-layouts.sidebar-link>
                 @endcanany
 
+                <!-- Section Divider: Invoicing -->
+                @canany(['list invoice', 'view invoice', 'create invoice', 'edit invoice', 'delete invoice', 'list invoicetemplate', 'view invoicetemplate', 'create invoicetemplate', 'edit invoicetemplate', 'delete invoicetemplate'])
+                    <li x-show="sidebarOpen" class="px-3 py-2 mt-4 mb-2">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Invoicing
+                        </span>
+                    </li>
+
+                    <!-- Invoicing Menu -->
+                    <div x-data="{ open: {{ request()->routeIs('invoices.*') || request()->routeIs('invoice-templates.*') ? 'true' : 'false' }} }">
+                        <li>
+                            <button @click="open = !open"
+                                @class([
+                                    'flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors duration-200',
+                                    'bg-sidebar-accent text-sidebar-accent-foreground font-medium' => request()->routeIs('invoices.*') || request()->routeIs('invoice-templates.*'),
+                                    'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground' => !(request()->routeIs('invoices.*') || request()->routeIs('invoice-templates.*')),
+                                ])
+                                x-bind:class="sidebarOpen ? 'justify-start' : 'justify-center'">
+                                @svg('fas-file-invoice', request()->routeIs('invoices.*') || request()->routeIs('invoice-templates.*') ? 'w-5 h-5 text-white dark:text-gray-800' : 'w-5 h-5 text-gray-500')
+
+                                <span x-show="sidebarOpen" class="ml-3 whitespace-nowrap flex-1 text-left">
+                                    Invoicing
+                                </span>
+
+                                <span x-show="sidebarOpen">
+                                    <i x-show="!open" class="fas fa-chevron-right text-xs ml-auto"></i>
+                                    <i x-show="open" class="fas fa-chevron-down text-xs ml-auto"></i>
+                                </span>
+                            </button>
+                        </li>
+
+                        <!-- Submenu -->
+                        <div x-show="open" x-transition class="ml-10 mt-1 space-y-1" x-cloak>
+                            <!-- Create Invoice -->
+                            @canany(['create invoice'])
+                                <x-layouts.sidebar-two-level-link href="{{ route('invoices.create') }}" icon="fas-plus-circle"
+                                    :active="request()->routeIs('invoices.create')">
+                                    Create Invoice
+                                </x-layouts.sidebar-two-level-link>
+                            @endcanany
+
+                            <!-- All Invoices -->
+                            @canany(['list invoice', 'view invoice', 'edit invoice', 'delete invoice'])
+                                <x-layouts.sidebar-two-level-link href="{{ route('invoices.index') }}" icon="fas-file-invoice"
+                                    :active="request()->routeIs('invoices.index') || request()->routeIs('invoices.show') || request()->routeIs('invoices.edit')">
+                                    All Invoices
+                                </x-layouts.sidebar-two-level-link>
+                            @endcanany
+
+                            <!-- Invoice Templates -->
+                            @canany(['list invoicetemplate', 'view invoicetemplate', 'create invoicetemplate', 'edit invoicetemplate', 'delete invoicetemplate'])
+                                <x-layouts.sidebar-two-level-link href="{{ route('invoice-templates.index') }}" icon="fas-file-invoice-dollar"
+                                    :active="request()->routeIs('invoice-templates.*')">
+                                    Invoice Templates
+                                </x-layouts.sidebar-two-level-link>
+                            @endcanany
+                        </div>
+                    </div>
+                @endcanany
+
                 <!-- Section Divider: Accounts & Banks -->
                 <li x-show="sidebarOpen" class="px-3 py-2 mt-4 mb-2">
                     <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">

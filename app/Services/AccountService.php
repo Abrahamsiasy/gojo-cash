@@ -309,35 +309,89 @@ class AccountService extends BaseService
     public function getTransactionHeaders(): array
     {
         return [
-            '#',
-            __('Type'),
-            __('Transaction Id'),
-            __('Amount'),
+            __('Date & Time'),
+            __('Details'),
             __('Category'),
-            __('Status'),
-            __('Date'),
-            __('Description'),
+            __('Mode'),
+            __('Amount'),
+            __('Balance'),
         ];
     }
 
     public function buildTransactionRows(LengthAwarePaginator $transactions): Collection
     {
-        return collect($transactions->items())->map(function (Transaction $transaction, int $index) use ($transactions) {
-            $position = ($transactions->firstItem() ?? 1) + $index;
+        $currentUser = Auth::user();
+
+        return collect($transactions->items())->map(function (Transaction $transaction) use ($currentUser) {
+            // Date & Time: Format as "27 Nov, 2025, 09:21 AM"
+            if ($transaction->created_at) {
+                $dateTime = $transaction->created_at->format('j M, Y, h:i A');
+            } elseif ($transaction->date) {
+                $dateTime = $transaction->date->format('j M, Y');
+            } else {
+                $dateTime = __('—');
+            }
+
+            // Details: Format as "(Client Name), Description, by You/by User Name"
+            $clientName = $transaction->client?->name ?? '';
+            $detailsParts = [];
+            if ($clientName) {
+                $detailsParts[] = "({$clientName})";
+            }
+            if ($transaction->description) {
+                $detailsParts[] = $transaction->description;
+            }
+            $createdByName = __('You');
+            if ($transaction->creator && $currentUser && $transaction->creator->id !== $currentUser->id) {
+                $createdByName = $transaction->creator->name;
+            }
+            $detailsParts[] = __('by :name', ['name' => $createdByName]);
+            $details = implode(', ', $detailsParts) ?: __('—');
+
+            // Category with type
+            if ($transaction->category) {
+                $categoryName = $transaction->category->name;
+                $categoryType = $transaction->category->type ?? $transaction->type ?? 'expense';
+                $typeLabel = ucfirst($categoryType);
+                $category = [
+                    'html' => '<div class="flex flex-col">
+                        <span class="text-gray-900 dark:text-gray-100">'.$categoryName.'</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">('.$typeLabel.')</span>
+                    </div>',
+                ];
+            } else {
+                $category = __('—');
+            }
+
+            // Mode: Get from meta or default to "Cash"
+            $meta = $transaction->meta ?? [];
+            $mode = $meta['mode'] ?? $meta['payment_mode'] ?? 'Cash';
+
+            // Amount: Format with color - green for income, red for expense
+            $amount = (float) $transaction->amount;
+            $isIncome = $transaction->type === 'income';
+            $amountColor = $isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+            // For expenses, display as negative
+            $displayAmount = $isIncome ? $amount : -abs($amount);
+            $formattedAmount = number_format($displayAmount, 2);
+
+            $amountHtml = '<span class="'.$amountColor.'">'.$formattedAmount.'</span>';
+
+            // Balance: Show new_balance
+            $balance = number_format((float) ($transaction->new_balance ?? 0), 2);
 
             return [
                 'id' => $transaction->id,
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
                 'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
-                    $position,
-                    ucfirst($transaction->type),
-                    Str::upper($transaction->transaction_id ?? __('—')),
-                    number_format((float) $transaction->amount, 2),
-                    $transaction->category->name ?? __('—'),
-                    ucfirst($transaction->status ?? 'pending'),
-                    $transaction->date?->format('M j, Y'),
-                    Str::limit($transaction->description ?? __('—'), 50),
+                    $dateTime,
+                    $details,
+                    $category,
+                    $mode,
+                    ['html' => $amountHtml],
+                    $balance,
                 ],
                 'actions' => [
                     'view' => [

@@ -33,6 +33,7 @@ class Company extends Model
     {
         return $this->hasMany(Account::class);
     }
+
     public function clients()
     {
         return $this->hasMany(Client::class);
@@ -46,5 +47,15 @@ class Company extends Model
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+
+    public function invoiceTemplates()
+    {
+        return $this->hasMany(InvoiceTemplate::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
     }
 }
