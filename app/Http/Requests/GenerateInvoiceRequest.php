@@ -61,7 +61,21 @@ class GenerateInvoiceRequest extends FormRequest
                     }
                 },
             ],
-            'invoice_number' => ['nullable', 'string', 'max:100'],
+            'invoice_number' => [
+                'nullable',
+                'string',
+                'max:100',
+                function ($attribute, $value, $fail) use ($companyId) {
+                    if ($value && $companyId) {
+                        $exists = \App\Models\Invoice::where('company_id', $companyId)
+                            ->where('invoice_number', $value)
+                            ->exists();
+                        if ($exists) {
+                            $fail(__('Invoice Number already exists.'));
+                        }
+                    }
+                },
+            ],
             'invoice_type' => ['nullable', 'string', 'in:standard,proforma,credit_note,recurring,progress'],
             'issue_date' => ['required', 'date'],
             'due_date' => ['nullable', 'date', function ($attribute, $value, $fail) {

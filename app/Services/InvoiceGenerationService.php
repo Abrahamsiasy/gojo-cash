@@ -129,7 +129,6 @@ class InvoiceGenerationService extends BaseService
         }
 
         $data['invoice_template_id'] = $template->id;
-        $data['invoice_number'] = $data['invoice_number'] ?? $this->generateInvoiceNumber($company->id);
         $data['created_by'] = $user->id ?? null;
 
         // Save company information from template (snapshot at time of invoice creation)
@@ -162,7 +161,12 @@ class InvoiceGenerationService extends BaseService
         // Ensure total_amount is never null
         $data['total_amount'] = $data['total_amount'] ?? 0;
 
-        return DB::transaction(function () use ($data) {
+        return DB::transaction(function () use ($data, $company) {
+            // Generate invoice number inside transaction to ensure proper locking
+            if (empty($data['invoice_number'])) {
+                $data['invoice_number'] = $this->generateInvoiceNumber($company->id);
+            }
+
             // Create invoice
             $invoice = Invoice::create($data);
 
@@ -279,37 +283,40 @@ class InvoiceGenerationService extends BaseService
         $prefix = 'INV';
         $year = now()->year;
 
-        return DB::transaction(function () use ($prefix, $year, $companyId) {
-            // Get all invoice numbers for this company in this year
-            $invoiceNumbers = Invoice::where('company_id', $companyId)
-                ->where('invoice_number', 'like', $prefix.'-'.$year.'-%')
-                ->lockForUpdate()
-                ->pluck('invoice_number')
-                ->toArray();
+        // Get all invoice numbers for this company in this year
+        $invoiceNumbers = Invoice::where('company_id', $companyId)
+            ->where('invoice_number', 'like', $prefix.'-'.$year.'-'.$companyId.'-%')
+            ->lockForUpdate()
+            ->pluck('invoice_number')
+            ->toArray();
 
-            $maxSequence = 0;
-            foreach ($invoiceNumbers as $number) {
-                if (preg_match('/'.$prefix.'-(\d{4})-(\d+)/', $number, $matches)) {
-                    $sequence = (int) $matches[2];
-                    if ($sequence > $maxSequence) {
-                        $maxSequence = $sequence;
-                    }
+        $maxSequence = 0;
+        // Extract the sequence number from existing invoices
+        foreach ($invoiceNumbers as $number) {
+            if (preg_match('/'.$prefix.'-\d{4}-'.$companyId.'-(\d+)/', $number, $matches)) {
+                $sequence = (int) $matches[1];
+                if ($sequence > $maxSequence) {
+                    $maxSequence = $sequence;
                 }
             }
+        }
 
-            $sequence = $maxSequence + 1;
+        $sequence = $maxSequence + 1;
 
-            // Ensure uniqueness by checking if the number already exists
-            $invoiceNumber = sprintf('%s-%d-%04d', $prefix, $year, $sequence);
-            $attempts = 0;
-            while (Invoice::where('invoice_number', $invoiceNumber)->exists() && $attempts < 100) {
-                $sequence++;
-                $invoiceNumber = sprintf('%s-%d-%04d', $prefix, $year, $sequence);
-                $attempts++;
-            }
+        // Generate the invoice number including company ID with 7 digits
+        $invoiceNumber = sprintf('%s-%d-%d-%07d', $prefix, $year, $companyId, $sequence);
+        // Safety loop to avoid collisions in rare concurrent requests
+        $attempts = 0;
+        while (Invoice::where('company_id', $companyId)
+            ->where('invoice_number', $invoiceNumber)
+            ->exists() && $attempts < 100
+        ) {
+            $sequence++;
+            $invoiceNumber = sprintf('%s-%d-%d-%07d', $prefix, $year, $companyId, $sequence);
+            $attempts++;
+        }
 
-            return $invoiceNumber;
-        });
+        return $invoiceNumber;
     }
 
     protected function calculateSubtotal(array $items): float
