@@ -23,6 +23,11 @@
             <div class="space-y-4">
                 <x-forms.input label="Name" name="name" placeholder="Enter name" class="w-full" />
 
+                @if(auth()->user()->hasRole('super-admin') && !empty($companies))
+                    <x-forms.select label="Company" name="company_id" :options="$companies" placeholder="Select company"
+                        class="w-full" />
+                @endif
+
                 <x-forms.select label="Role" name="role" :options="$roles" placeholder="Select role"
                     class="w-full" />
             </div>

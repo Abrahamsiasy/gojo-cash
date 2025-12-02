@@ -50,6 +50,7 @@ class BankService
             return [
                 'id' => $bank->id,
                 'name' => $bank->name,
+                'model' => $bank, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $bank->name,

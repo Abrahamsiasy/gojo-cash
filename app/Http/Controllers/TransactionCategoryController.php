@@ -18,6 +18,7 @@ class TransactionCategoryController extends Controller
      */
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', TransactionCategory::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -29,6 +30,7 @@ class TransactionCategoryController extends Controller
      */
     public function create(): View
     {
+        $this->authorize('create', TransactionCategory::class);
         return view('admin.transaction_categories.create', $this->transactionCategoryService->prepareCreateFormData());
     }
 
@@ -37,6 +39,7 @@ class TransactionCategoryController extends Controller
      */
     public function store(StoreTransactionCategoryRequest $request)
     {
+        $this->authorize('create', TransactionCategory::class);
         $this->transactionCategoryService->createCategory($request->validated());
 
         return redirect()->route('transaction-categories.index')
@@ -48,7 +51,7 @@ class TransactionCategoryController extends Controller
      */
     public function show(TransactionCategory $transactionCategory)
     {
-        //
+        $this->authorize('view', $transactionCategory);
         return view('admin.transaction_categories.show', [
             'transactionCategory' => $transactionCategory,
         ]);
@@ -59,6 +62,7 @@ class TransactionCategoryController extends Controller
      */
     public function edit(TransactionCategory $transactionCategory): View
     {
+        $this->authorize('update', $transactionCategory);
         return view('admin.transaction_categories.edit', $this->transactionCategoryService->prepareEditFormData($transactionCategory));
     }
 
@@ -67,6 +71,7 @@ class TransactionCategoryController extends Controller
      */
     public function update(UpdateTransactionCategoryRequest $request, TransactionCategory $transactionCategory)
     {
+        $this->authorize('update', $transactionCategory);
         $this->transactionCategoryService->updateCategory($transactionCategory, $request->validated());
 
         return redirect()->route('transaction-categories.index')
@@ -78,6 +83,7 @@ class TransactionCategoryController extends Controller
      */
     public function destroy(TransactionCategory $transactionCategory)
     {
+        $this->authorize('delete', $transactionCategory);
         $this->transactionCategoryService->deleteCategory($transactionCategory);
 
         return redirect()->route('transaction-categories.index')

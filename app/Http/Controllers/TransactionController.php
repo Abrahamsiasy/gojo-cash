@@ -21,6 +21,7 @@ class TransactionController extends Controller
      */
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Transaction::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -32,6 +33,7 @@ class TransactionController extends Controller
      */
     public function create(): View
     {
+        $this->authorize('create', Transaction::class);
         return view('admin.transactions.create', $this->transactionService->prepareCreateFormData());
     }
 
@@ -40,6 +42,7 @@ class TransactionController extends Controller
      */
     public function store(StoreTransactionRequest $request)
     {
+        $this->authorize('create', Transaction::class);
         try {
             $transaction = $this->transactionService->recordTransaction($request->validated());
 
@@ -94,6 +97,7 @@ class TransactionController extends Controller
      */
     public function show(Transaction $transaction): View
     {
+        $this->authorize('view', $transaction);
         return view('admin.transactions.show', $this->transactionService->prepareShowData($transaction));
     }
 
@@ -102,7 +106,8 @@ class TransactionController extends Controller
      */
     public function edit(Transaction $transaction)
     {
-        //
+        $this->authorize('update', $transaction);
+        // TODO: Implement edit view
     }
 
     /**
@@ -110,7 +115,8 @@ class TransactionController extends Controller
      */
     public function update(UpdateTransactionRequest $request, Transaction $transaction)
     {
-        //
+        $this->authorize('update', $transaction);
+        // TODO: Implement update logic
     }
 
     /**
@@ -118,6 +124,7 @@ class TransactionController extends Controller
      */
     public function destroy(Transaction $transaction)
     {
+        $this->authorize('delete', $transaction);
         $this->transactionService->deleteTransaction($transaction);
 
         return redirect()->route('transactions.index')->with('success', __('Transaction deleted successfully.'));
@@ -128,6 +135,7 @@ class TransactionController extends Controller
      */
     public function storeAttachments(StoreTransactionAttachmentRequest $request, Transaction $transaction)
     {
+        $this->authorize('update', $transaction);
         try {
             $attachments = $this->transactionService->storeAttachments(
                 $transaction,
@@ -151,6 +159,7 @@ class TransactionController extends Controller
      */
     public function destroyAttachment(Transaction $transaction, TransactionAttachment $attachment)
     {
+        $this->authorize('update', $transaction);
         // Verify attachment belongs to transaction
         if ($attachment->transaction_id !== $transaction->id) {
             abort(403);

@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class TransactionStoreTest extends TestCase
@@ -19,9 +20,16 @@ class TransactionStoreTest extends TestCase
 
     public function test_user_is_redirected_back_to_company_after_creating_transaction_from_company_view(): void
     {
-        $user = User::factory()->create();
+        // Create the required permissions
+        Permission::firstOrCreate(['name' => 'create transaction']);
+        Permission::firstOrCreate(['name' => 'create income']);
+        Permission::firstOrCreate(['name' => 'create expense']);
+        Permission::firstOrCreate(['name' => 'create transfer']);
 
         $company = Company::factory()->create();
+        $user = User::factory()->create([
+            'company_id' => $company->id,
+        ]);
         $bank = Bank::factory()->create();
 
         $account = Account::factory()->create([
@@ -44,8 +52,11 @@ class TransactionStoreTest extends TestCase
         $client = Client::create([
             'name' => 'John',
             'company_id' => $company->id,
-            'email' => 'resr@twet.com'
+            'email' => 'resr@twet.com',
         ]);
+
+        // Give user permissions to create transactions
+        $user->givePermissionTo(['create transaction', 'create income']);
 
         $response = $this
             ->actingAs($user)
@@ -53,6 +64,7 @@ class TransactionStoreTest extends TestCase
                 'company_id' => $company->id,
                 'account_id' => $account->id,
                 'client_id' => $client->id,
+                'transaction_type' => 'income',
                 'transaction_category_id' => $category->id,
                 'amount' => 150.25,
                 'description' => 'Test transaction',

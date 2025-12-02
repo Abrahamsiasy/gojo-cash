@@ -55,6 +55,7 @@
 
     {{-- Second Column --}}
     <div class="space-y-4">
+        <x-forms.select label="Client" name="client_id" :options="$clients" placeholder="Select client" />
         <x-forms.input label="Amount" name="amount" type="number" step="0.01" placeholder="Enter amount" />
         <x-forms.input label="Transaction Id" name="transaction_id" type="number" step="1" placeholder="Enter Transactin Id" />
         <x-forms.input label="Date" name="date" type="date" />

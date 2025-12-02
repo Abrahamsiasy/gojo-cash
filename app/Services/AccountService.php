@@ -11,9 +11,10 @@ use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
-class AccountService
+class AccountService extends BaseService
 {
     public function getAccountIndexData(?string $search, int $perPage = 15): array
     {
@@ -31,6 +32,7 @@ class AccountService
     {
         return Account::query()
             ->with(['company', 'bank'])
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('name', 'like', '%'.$search.'%')
@@ -68,6 +70,7 @@ class AccountService
             return [
                 'id' => $account->id,
                 'name' => $account->name,
+                'model' => $account, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $account->name,
@@ -98,7 +101,7 @@ class AccountService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => Company::orderBy('name')->pluck('name', 'id')->toArray(),
+            'companies' => $this->getCompaniesForSelect(),
             'banks' => Bank::orderBy('name')->pluck('name', 'id')->toArray(),
             'accountTypeOptions' => collect(AccountType::cases())
                 ->mapWithKeys(static fn (AccountType $type): array => [
@@ -118,6 +121,14 @@ class AccountService
 
     public function createAccount(array $data): Account
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return Account::create($data);
     }
 
@@ -161,7 +172,7 @@ class AccountService
     {
         $query = Transaction::where('account_id', $account->id);
         $this->applyFilters($query, $filters);
-        
+
         // Clone query for different aggregates to avoid interference if we were doing complex joins,
         // but here we can just get the collection since we need to iterate for top category anyway.
         // However, for performance on large datasets, separate DB queries might be better.
@@ -201,7 +212,7 @@ class AccountService
         $dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : now()->endOfMonth();
 
         $diffInDays = $dateFrom->diffInDays($dateTo);
-        
+
         // Dynamic Grouping: < 90 days -> Day, else -> Month
         $groupBy = $diffInDays <= 90 ? 'day' : 'month';
         $dateFormat = $groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
@@ -211,7 +222,7 @@ class AccountService
         $query = Transaction::where('account_id', $account->id)
             ->whereBetween('date', [$dateFrom, $dateTo])
             ->whereIn('type', ['income', 'expense']);
-            
+
         $this->applyFilters($query, \Illuminate\Support\Arr::except($filters, ['date_from', 'date_to']));
 
         $data = $query->selectRaw("DATE_FORMAT(date, '$dateFormat') as period, type, SUM(amount) as total")
@@ -222,19 +233,19 @@ class AccountService
         $labels = [];
         $incomeData = [];
         $expenseData = [];
-        
+
         // Fill gaps
         $current = $dateFrom->copy();
         while ($current <= $dateTo) {
             $key = $current->format($phpDateFormat);
             $label = $current->format($labelFormat);
-            
+
             $labels[] = $label;
-            
+
             // Find data for this period
             $income = $data->where('period', $key)->where('type', 'income')->first()?->total ?? 0;
             $expense = $data->where('period', $key)->where('type', 'expense')->first()?->total ?? 0;
-            
+
             $incomeData[] = (float) $income;
             $expenseData[] = (float) $expense;
 
@@ -298,34 +309,94 @@ class AccountService
     public function getTransactionHeaders(): array
     {
         return [
-            '#',
-            __('Type'),
-            __('Transaction Id'),
-            __('Amount'),
+            __('Date & Time'),
+            __('Details'),
             __('Category'),
-            __('Status'),
-            __('Date'),
-            __('Description'),
+            __('Mode'),
+            __('Amount'),
+            __('Balance'),
         ];
     }
 
     public function buildTransactionRows(LengthAwarePaginator $transactions): Collection
     {
-        return collect($transactions->items())->map(function (Transaction $transaction, int $index) use ($transactions) {
-            $position = ($transactions->firstItem() ?? 1) + $index;
+        $currentUser = Auth::user();
+
+        return collect($transactions->items())->map(function (Transaction $transaction) use ($currentUser) {
+            // Date & Time with optional Transaction ID
+            if ($transaction->created_at) {
+                $dateTime = $transaction->created_at->format('j M, Y, h:i A');
+            } elseif ($transaction->date) {
+                $dateTime = $transaction->date->format('j M, Y');
+            } else {
+                $dateTime = __('—');
+            }
+
+            // Append transaction ID if it exists
+            if (! empty($transaction->transaction_id)) {
+                $dateTime .= ' (ID: '.$transaction->transaction_id.')';
+            }
+
+            // Details: Format as "(Client Name), Description, by You/by User Name"
+            $clientName = $transaction->client?->name ?? '';
+            $detailsParts = [];
+            if ($clientName) {
+                $detailsParts[] = "({$clientName})";
+            }
+            if ($transaction->description) {
+                $detailsParts[] = $transaction->description;
+            }
+            $createdByName = __('You');
+            if ($transaction->creator && $currentUser && $transaction->creator->id !== $currentUser->id) {
+                $createdByName = $transaction->creator->name;
+            }
+            $detailsParts[] = __('by :name', ['name' => $createdByName]);
+            $details = implode(', ', $detailsParts) ?: __('—');
+
+            // Category with type
+            if ($transaction->category) {
+                $categoryName = $transaction->category->name;
+                $categoryType = $transaction->category->type ?? $transaction->type ?? 'expense';
+                $typeLabel = ucfirst($categoryType);
+                $category = [
+                    'html' => '<div class="flex flex-col">
+                        <span class="text-gray-900 dark:text-gray-100">'.$categoryName.'</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">('.$typeLabel.')</span>
+                    </div>',
+                ];
+            } else {
+                $category = __('—');
+            }
+
+            // Mode: Get from meta or default to "Cash"
+            $meta = $transaction->meta ?? [];
+            $mode = $meta['mode'] ?? $meta['payment_mode'] ?? 'Cash';
+
+            // Amount: Format with color - green for income, red for expense
+            $amount = (float) $transaction->amount;
+            $isIncome = $transaction->type === 'income';
+            $amountColor = $isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+            // For expenses, display as negative
+            $displayAmount = $isIncome ? $amount : -abs($amount);
+            $formattedAmount = number_format($displayAmount, 2);
+
+            $amountHtml = '<span class="'.$amountColor.'">'.$formattedAmount.'</span>';
+
+            // Balance: Show new_balance
+            $balance = number_format((float) ($transaction->new_balance ?? 0), 2);
 
             return [
                 'id' => $transaction->id,
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
+                'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
-                    $position,
-                    ucfirst($transaction->type),
-                    Str::upper($transaction->transaction_id ?? __('—')),
-                    number_format((float) $transaction->amount, 2),
-                    $transaction->category->name ?? __('—'),
-                    ucfirst($transaction->status ?? 'pending'),
-                    $transaction->date?->format('M j, Y'),
-                    Str::limit($transaction->description ?? __('—'), 50),
+                    $dateTime,
+                    $details,
+                    $category,
+                    $mode,
+                    ['html' => $amountHtml],
+                    $balance,
                 ],
                 'actions' => [
                     'view' => [
@@ -365,11 +436,10 @@ class AccountService
         }
     }
 
-
     public function getTransactionsByCategoryData(Account $account, array $filters = []): Collection
     {
         $query = Transaction::where('account_id', $account->id);
-        
+
         $this->applyFilters($query, $filters);
 
         return $query->whereNotNull('category_id')
@@ -398,8 +468,34 @@ class AccountService
 
     public function getCategories(Account $account): array
     {
-        return TransactionCategory::where('company_id', $account->company_id)
-            ->orderBy('name')
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $query = TransactionCategory::where('company_id', $account->company_id);
+
+        // Filter by user permissions if not super-admin
+        if (! $user->hasRole('super-admin')) {
+            $categoryTypes = [];
+            if ($user->can('create income')) {
+                $categoryTypes[] = 'income';
+            }
+            if ($user->can('create expense')) {
+                $categoryTypes[] = 'expense';
+            }
+
+            // If user has no permissions, return empty array
+            if (empty($categoryTypes)) {
+                return [];
+            }
+
+            $query->whereIn('type', $categoryTypes);
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [
