@@ -19,6 +19,7 @@ class StoreTransactionRequest extends FormRequest
     public function rules(): array
     {
         $companyId = $this->input('company_id');
+        $user = $this->user();
 
         return [
             'company_id' => [
@@ -48,11 +49,26 @@ class StoreTransactionRequest extends FormRequest
                 Rule::requiredIf(fn () => ! $this->boolean('is_transfer')),
                 'nullable',
                 'exists:transaction_categories,id',
-                function ($attribute, $value, $fail) use ($companyId) {
+                function ($attribute, $value, $fail) use ($companyId, $user) {
                     if ($value && $companyId) {
                         $category = \App\Models\TransactionCategory::find($value);
                         if ($category && $category->company_id != $companyId) {
                             $fail(__('The selected category does not belong to the selected company.'));
+
+                            return;
+                        }
+
+                        // Validate that user has permission for the category type
+                        if ($user && ! $user->hasRole('super-admin')) {
+                            $permissionMap = [
+                                'income' => 'create income',
+                                'expense' => 'create expense',
+                            ];
+
+                            $requiredPermission = $permissionMap[$category->type] ?? null;
+                            if ($requiredPermission && ! $user->can($requiredPermission)) {
+                                $fail(__('You do not have permission to use :type categories.', ['type' => $category->type]));
+                            }
                         }
                     }
                 },
@@ -64,11 +80,20 @@ class StoreTransactionRequest extends FormRequest
                 'nullable',
                 'exists:accounts,id',
                 'different:account_id',
-                function ($attribute, $value, $fail) use ($companyId) {
+                function ($attribute, $value, $fail) use ($companyId, $user) {
                     if ($value && $companyId) {
                         $account = \App\Models\Account::find($value);
                         if ($account && $account->company_id != $companyId) {
                             $fail(__('The related account does not belong to the selected company.'));
+
+                            return;
+                        }
+                    }
+
+                    // Validate transfer permission
+                    if ($this->boolean('is_transfer') && $user && ! $user->hasRole('super-admin')) {
+                        if (! $user->can('create transfer')) {
+                            $fail(__('You do not have permission to create transfer transactions.'));
                         }
                     }
                 },

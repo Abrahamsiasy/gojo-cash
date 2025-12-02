@@ -35,6 +35,17 @@ class PermissionSeeder extends Seeder
             }
         }
 
+        // Create transaction type-specific permissions
+        $transactionTypePermissions = [
+            'create expense',
+            'create income',
+            'create transfer',
+        ];
+
+        foreach ($transactionTypePermissions as $permissionName) {
+            Permission::firstOrCreate(['name' => $permissionName]);
+        }
+
         // Sync all permissions to super-admin role
         $role = Role::firstOrCreate(['name' => 'super-admin']);
         $role->syncPermissions(Permission::all());

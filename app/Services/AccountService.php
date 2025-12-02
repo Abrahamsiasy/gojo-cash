@@ -333,10 +333,9 @@ class AccountService extends BaseService
             }
 
             // Append transaction ID if it exists
-            if (!empty($transaction->transaction_id)) {
-                $dateTime .= ' (ID: ' . $transaction->transaction_id . ')';
+            if (! empty($transaction->transaction_id)) {
+                $dateTime .= ' (ID: '.$transaction->transaction_id.')';
             }
-
 
             // Details: Format as "(Client Name), Description, by You/by User Name"
             $clientName = $transaction->client?->name ?? '';
@@ -469,8 +468,34 @@ class AccountService extends BaseService
 
     public function getCategories(Account $account): array
     {
-        return TransactionCategory::where('company_id', $account->company_id)
-            ->orderBy('name')
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $query = TransactionCategory::where('company_id', $account->company_id);
+
+        // Filter by user permissions if not super-admin
+        if (! $user->hasRole('super-admin')) {
+            $categoryTypes = [];
+            if ($user->can('create income')) {
+                $categoryTypes[] = 'income';
+            }
+            if ($user->can('create expense')) {
+                $categoryTypes[] = 'expense';
+            }
+
+            // If user has no permissions, return empty array
+            if (empty($categoryTypes)) {
+                return [];
+            }
+
+            $query->whereIn('type', $categoryTypes);
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [

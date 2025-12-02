@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class CompanyService extends BaseService
@@ -255,9 +256,35 @@ class CompanyService extends BaseService
 
     public function getTransactionCategories(Company $company): array
     {
-        return TransactionCategory::query()
-            ->where('company_id', $company->id)
-            ->orderBy('name')
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $query = TransactionCategory::query()
+            ->where('company_id', $company->id);
+
+        // Filter by user permissions if not super-admin
+        if (! $user->hasRole('super-admin')) {
+            $categoryTypes = [];
+            if ($user->can('create income')) {
+                $categoryTypes[] = 'income';
+            }
+            if ($user->can('create expense')) {
+                $categoryTypes[] = 'expense';
+            }
+
+            // If user has no permissions, return empty array
+            if (empty($categoryTypes)) {
+                return [];
+            }
+
+            $query->whereIn('type', $categoryTypes);
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [
