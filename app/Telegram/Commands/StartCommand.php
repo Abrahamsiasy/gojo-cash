@@ -25,12 +25,12 @@ class StartCommand extends Command
                 'text' => 'Tap the button below to launch the mini app.',
                 'reply_markup' => Keyboard::make()
                     ->inline()
-                    ->row(Keyboard::inlineButton([
+                    ->row([Keyboard::inlineButton([
                         'text' => 'Open Mini App',
                         'web_app' => [
                             'url' => $miniAppUrl,
                         ],
-                    ])),
+                    ])]),
             ]);
 
             return;
