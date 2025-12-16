@@ -25,6 +25,14 @@
                     </x-layouts.sidebar-link>
                 @endcanany
 
+                <!-- File Manager -->
+                @canany(['list filemanager', 'view filemanager'])
+                    <x-layouts.sidebar-link href="{{ route('file-manager.index') }}" icon="fas-folder-open"
+                        :active="request()->routeIs('file-manager.*')">
+                        File Manager
+                    </x-layouts.sidebar-link>
+                @endcanany
+
                 <!-- Transaction Categories -->
                 @canany([
                     'list transactioncategory',

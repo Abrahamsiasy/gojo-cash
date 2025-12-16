@@ -24,6 +24,7 @@ class PermissionSeeder extends Seeder
             'Transaction',
             'InvoiceTemplate',
             'Invoice',
+            'FileManager',
         ];
 
         $actions = ['list', 'view', 'create', 'edit', 'delete'];
