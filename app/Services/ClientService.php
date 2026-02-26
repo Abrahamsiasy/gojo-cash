@@ -6,8 +6,9 @@ use App\Models\Client;
 use App\Models\Company;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
-class ClientService
+class ClientService extends BaseService
 {
     public function getClientIndexData(?string $search, int $perPage = 15): array
     {
@@ -26,6 +27,7 @@ class ClientService
     {
         return Client::query()
             ->with('company')
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('name', 'like', '%'.$search.'%')
@@ -60,6 +62,7 @@ class ClientService
             return [
                 'id' => $client->id,
                 'name' => $client->name,
+                'model' => $client, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $client->name,
@@ -87,12 +90,20 @@ class ClientService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => Company::orderBy('name')->pluck('name', 'id')->toArray(),
+            'companies' => $this->getCompaniesForSelect(),
         ];
     }
 
     public function createClient(array $data): Client
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return Client::create($data);
     }
 
@@ -188,6 +199,7 @@ class ClientService
             return [
                 'id' => $transaction->id,
                 'name' => $transaction->description ?? __('Transaction #:id', ['id' => $transaction->id]),
+                'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $transaction->date?->format('M j, Y') ?? __('—'),

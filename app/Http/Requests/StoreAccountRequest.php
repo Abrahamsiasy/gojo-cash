@@ -23,10 +23,22 @@ class StoreAccountRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+        $companyId = $this->input('company_id');
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'account_number' => ['required', 'string', 'max:255'],
-            'company_id' => ['required', 'exists:companies,id'],
+            'company_id' => [
+                'required',
+                'exists:companies,id',
+                function ($attribute, $value, $fail) use ($user) {
+                    // Regular users can only create accounts for their company
+                    if ($user && ! $user->hasRole('super-admin') && $user->company_id != $value) {
+                        $fail(__('You can only create accounts for your company.'));
+                    }
+                },
+            ],
             'account_type' => [
                 'required',
                 'string',

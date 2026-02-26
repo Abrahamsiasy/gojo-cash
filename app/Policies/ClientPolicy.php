@@ -4,16 +4,18 @@ namespace App\Policies;
 
 use App\Models\Client;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
+use App\Policies\Concerns\ChecksCompanyAccess;
 
 class ClientPolicy
 {
+    use ChecksCompanyAccess;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $this->hasPermission($user, 'list client');
     }
 
     /**
@@ -21,7 +23,7 @@ class ClientPolicy
      */
     public function view(User $user, Client $client): bool
     {
-        return false;
+        return $this->canAccess($user, 'view client', $client->company_id);
     }
 
     /**
@@ -29,7 +31,7 @@ class ClientPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $this->hasPermission($user, 'create client');
     }
 
     /**
@@ -37,7 +39,7 @@ class ClientPolicy
      */
     public function update(User $user, Client $client): bool
     {
-        return false;
+        return $this->canAccess($user, 'edit client', $client->company_id);
     }
 
     /**
@@ -45,7 +47,7 @@ class ClientPolicy
      */
     public function delete(User $user, Client $client): bool
     {
-        return false;
+        return $this->canAccess($user, 'delete client', $client->company_id);
     }
 
     /**

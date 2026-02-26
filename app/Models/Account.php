@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
 
 class Account extends Model
 {
@@ -31,6 +32,22 @@ class Account extends Model
         'is_active' => 'boolean',
         'account_type' => AccountType::class,
     ];
+
+    /**
+     * Scope a query to only include records for the authenticated user's company.
+     * Super-admins see all records.
+     */
+    public function scopeForCompany($query, ?int $companyId = null)
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('super-admin')) {
+            return $query; // No filter for super-admin
+        }
+
+        return $query->where('company_id', $user->company_id ?? $companyId);
+    }
 
     public function company()
     {

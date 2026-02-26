@@ -21,11 +21,22 @@ class StoreClientRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+
         return [
-            'name' => 'required',
-            'email' => 'required|email',
-            'address' => 'nullable|min:5|max:100',
-            'company_id' => 'nullable|exists:companies,id'
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'address' => ['nullable', 'string', 'min:5', 'max:100'],
+            'company_id' => [
+                'required',
+                'exists:companies,id',
+                function ($attribute, $value, $fail) use ($user) {
+                    // Regular users can only create clients for their company
+                    if ($user && ! $user->hasRole('super-admin') && $user->company_id != $value) {
+                        $fail(__('You can only create clients for your company.'));
+                    }
+                },
+            ],
         ];
     }
 }

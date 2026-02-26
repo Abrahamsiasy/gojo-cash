@@ -24,6 +24,12 @@
             <div class="space-y-4">
                 <x-forms.input label="Name" name="name" placeholder="Enter name" class="w-full"
                     value="{{ old('name', $user->name) }}" />
+
+                @if(auth()->user()->hasRole('super-admin') && !empty($companies))
+                    <x-forms.select label="Company" name="company_id" :options="$companies" placeholder="Select company"
+                        class="w-full" :selected="old('company_id', $user->company_id)" />
+                @endif
+
                 <x-forms.select label="Role" name="role" :options="$roles" placeholder="Select role" class="w-full"
                     :selected="old('role', $userRole)" />
             </div>
@@ -32,7 +38,7 @@
             <div class="space-y-4">
                 <x-forms.input label="Email" name="email" type="email" placeholder="Enter email address"
                     class="w-full" value="{{ old('email', $user->email) }}" />
-                <x-forms.input label="Password" name="password" type="password" placeholder="Enter password"
+                <x-forms.input label="Password" name="password" type="password" placeholder="Enter password (leave blank to keep current)"
                     class="w-full" />
                 <x-forms.input label="Confirm Password" name="password_confirmation" type="password"
                     placeholder="Confirm password" class="w-full" />

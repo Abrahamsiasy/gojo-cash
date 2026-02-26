@@ -22,10 +22,10 @@ class UpdateBankRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => "required",
+            'name' => 'required',
             'description' => 'nullable',
             'is_default' => 'nullable',
-            'status' => 'nullable'
+            'status' => 'nullable',
         ];
     }
 }

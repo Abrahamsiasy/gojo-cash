@@ -18,6 +18,7 @@ class CompanyController extends Controller
      */
     public function index(Request $request): View
     {
+        $this->authorize('viewAny', Company::class);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -29,7 +30,7 @@ class CompanyController extends Controller
      */
     public function create()
     {
-        //
+        $this->authorize('create', Company::class);
         return view('admin.companies.create');
     }
 
@@ -38,6 +39,7 @@ class CompanyController extends Controller
      */
     public function store(StoreCompanyRequest $request)
     {
+        $this->authorize('create', Company::class);
         $this->companyService->createCompany($request->validated());
 
         return redirect()->route('companies.index')->with('success', __('Company created successfully.'));
@@ -48,6 +50,7 @@ class CompanyController extends Controller
      */
     public function show(Request $request, Company $company): View
     {
+        $this->authorize('view', $company);
         $search = $request->string('search');
         $searchValue = $search->isNotEmpty() ? $search->toString() : null;
 
@@ -67,7 +70,7 @@ class CompanyController extends Controller
      */
     public function edit(Company $company)
     {
-        //
+        $this->authorize('update', $company);
         return view('admin.companies.edit', [
             'company' => $company,
         ]);
@@ -78,6 +81,7 @@ class CompanyController extends Controller
      */
     public function update(UpdateCompanyRequest $request, Company $company)
     {
+        $this->authorize('update', $company);
         $this->companyService->updateCompany($company, $request->validated());
 
         return redirect()
@@ -90,6 +94,7 @@ class CompanyController extends Controller
      */
     public function destroy(Company $company)
     {
+        $this->authorize('delete', $company);
         $this->companyService->deleteCompany($company);
 
         return redirect()->route('companies.index')->with('success', __('Company deleted successfully'));

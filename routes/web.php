@@ -4,6 +4,10 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\BankController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FileManagerController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoiceTemplateController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Settings;
 use App\Http\Controllers\TransactionCategoryController;
@@ -18,7 +22,7 @@ Route::get('home', function () {
     return redirect()->route('dashboard');
 })->middleware(['auth', 'verified']);
 
-Route::view('dashboard', 'dashboard')
+Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
@@ -35,14 +39,28 @@ Route::middleware(['auth'])
         Route::resource('companies', CompanyController::class);
         Route::resource('accounts', AccountController::class);
         Route::get('accounts/{account}/export-transactions', [AccountController::class, 'exportTransactions'])->name('accounts.export-transactions');
+        Route::get('accounts/{account}/download-sample-csv', [AccountController::class, 'downloadSampleCsv'])->name('accounts.download-sample-csv');
+        Route::post('accounts/{account}/import-transactions', [AccountController::class, 'importTransactions'])->name('accounts.import-transactions');
         Route::resource('transaction-categories', TransactionCategoryController::class);
         Route::resource('transactions', TransactionController::class);
         Route::post('transactions/{transaction}/attachments', [TransactionController::class, 'storeAttachments'])->name('transactions.attachments.store');
         Route::delete('transactions/{transaction}/attachments/{attachment}', [TransactionController::class, 'destroyAttachment'])->name('transactions.attachments.destroy');
+        Route::get('file-manager', [FileManagerController::class, 'index'])->name('file-manager.index');
         Route::resource('banks', BankController::class);
         Route::resource('clients', ClientController::class);
         Route::resource('users', UserController::class);
         Route::resource('roles', RoleController::class);
+
+        // Invoice Templates
+        Route::resource('invoice-templates', InvoiceTemplateController::class);
+        Route::get('invoice-templates/{invoiceTemplate}/preview', [InvoiceTemplateController::class, 'preview'])->name('invoice-templates.preview');
+
+        // Invoices
+        Route::resource('invoices', InvoiceController::class);
+        Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+        Route::get('invoices/{invoice}/stream', [InvoiceController::class, 'stream'])->name('invoices.stream');
+        Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
+        Route::get('invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
 
     });
 

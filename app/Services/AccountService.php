@@ -11,9 +11,12 @@ use App\Models\Transaction;
 use App\Models\TransactionCategory;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
-class AccountService
+class AccountService extends BaseService
 {
     public function getAccountIndexData(?string $search, int $perPage = 15): array
     {
@@ -31,6 +34,7 @@ class AccountService
     {
         return Account::query()
             ->with(['company', 'bank'])
+            ->forCompany() // Use scope for company filtering
             ->when(! empty($search), static function ($query) use ($search) {
                 $query->where(static function ($innerQuery) use ($search) {
                     $innerQuery->where('name', 'like', '%'.$search.'%')
@@ -68,6 +72,7 @@ class AccountService
             return [
                 'id' => $account->id,
                 'name' => $account->name,
+                'model' => $account, // Include model instance for policy checks
                 'cells' => [
                     $position,
                     $account->name,
@@ -98,7 +103,7 @@ class AccountService
     public function prepareCreateFormData(): array
     {
         return [
-            'companies' => Company::orderBy('name')->pluck('name', 'id')->toArray(),
+            'companies' => $this->getCompaniesForSelect(),
             'banks' => Bank::orderBy('name')->pluck('name', 'id')->toArray(),
             'accountTypeOptions' => collect(AccountType::cases())
                 ->mapWithKeys(static fn (AccountType $type): array => [
@@ -118,6 +123,14 @@ class AccountService
 
     public function createAccount(array $data): Account
     {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        // Auto-assign company for non-super-admin users
+        if ($user && ! $user->hasRole('super-admin') && ! isset($data['company_id'])) {
+            $data['company_id'] = $user->company_id;
+        }
+
         return Account::create($data);
     }
 
@@ -161,7 +174,7 @@ class AccountService
     {
         $query = Transaction::where('account_id', $account->id);
         $this->applyFilters($query, $filters);
-        
+
         // Clone query for different aggregates to avoid interference if we were doing complex joins,
         // but here we can just get the collection since we need to iterate for top category anyway.
         // However, for performance on large datasets, separate DB queries might be better.
@@ -201,7 +214,7 @@ class AccountService
         $dateTo = isset($filters['date_to']) ? \Carbon\Carbon::parse($filters['date_to']) : now()->endOfMonth();
 
         $diffInDays = $dateFrom->diffInDays($dateTo);
-        
+
         // Dynamic Grouping: < 90 days -> Day, else -> Month
         $groupBy = $diffInDays <= 90 ? 'day' : 'month';
         $dateFormat = $groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
@@ -211,7 +224,7 @@ class AccountService
         $query = Transaction::where('account_id', $account->id)
             ->whereBetween('date', [$dateFrom, $dateTo])
             ->whereIn('type', ['income', 'expense']);
-            
+
         $this->applyFilters($query, \Illuminate\Support\Arr::except($filters, ['date_from', 'date_to']));
 
         $data = $query->selectRaw("DATE_FORMAT(date, '$dateFormat') as period, type, SUM(amount) as total")
@@ -222,19 +235,19 @@ class AccountService
         $labels = [];
         $incomeData = [];
         $expenseData = [];
-        
+
         // Fill gaps
         $current = $dateFrom->copy();
         while ($current <= $dateTo) {
             $key = $current->format($phpDateFormat);
             $label = $current->format($labelFormat);
-            
+
             $labels[] = $label;
-            
+
             // Find data for this period
             $income = $data->where('period', $key)->where('type', 'income')->first()?->total ?? 0;
             $expense = $data->where('period', $key)->where('type', 'expense')->first()?->total ?? 0;
-            
+
             $incomeData[] = (float) $income;
             $expenseData[] = (float) $expense;
 
@@ -298,34 +311,94 @@ class AccountService
     public function getTransactionHeaders(): array
     {
         return [
-            '#',
-            __('Type'),
-            __('Transaction Id'),
-            __('Amount'),
+            __('Date & Time'),
+            __('Details'),
             __('Category'),
-            __('Status'),
-            __('Date'),
-            __('Description'),
+            __('Mode'),
+            __('Amount'),
+            __('Balance'),
         ];
     }
 
     public function buildTransactionRows(LengthAwarePaginator $transactions): Collection
     {
-        return collect($transactions->items())->map(function (Transaction $transaction, int $index) use ($transactions) {
-            $position = ($transactions->firstItem() ?? 1) + $index;
+        $currentUser = Auth::user();
+
+        return collect($transactions->items())->map(function (Transaction $transaction) use ($currentUser) {
+            // Date & Time with optional Transaction ID
+            if ($transaction->created_at) {
+                $dateTime = $transaction->created_at->format('j M, Y, h:i A');
+            } elseif ($transaction->date) {
+                $dateTime = $transaction->date->format('j M, Y');
+            } else {
+                $dateTime = __('—');
+            }
+
+            // Append transaction ID if it exists
+            if (! empty($transaction->transaction_id)) {
+                $dateTime .= ' (ID: '.$transaction->transaction_id.')';
+            }
+
+            // Details: Format as "(Client Name), Description, by You/by User Name"
+            $clientName = $transaction->client?->name ?? '';
+            $detailsParts = [];
+            if ($clientName) {
+                $detailsParts[] = "({$clientName})";
+            }
+            if ($transaction->description) {
+                $detailsParts[] = $transaction->description;
+            }
+            $createdByName = __('You');
+            if ($transaction->creator && $currentUser && $transaction->creator->id !== $currentUser->id) {
+                $createdByName = $transaction->creator->name;
+            }
+            $detailsParts[] = __('by :name', ['name' => $createdByName]);
+            $details = implode(', ', $detailsParts) ?: __('—');
+
+            // Category with type
+            if ($transaction->category) {
+                $categoryName = $transaction->category->name;
+                $categoryType = $transaction->category->type ?? $transaction->type ?? 'expense';
+                $typeLabel = ucfirst($categoryType);
+                $category = [
+                    'html' => '<div class="flex flex-col">
+                        <span class="text-gray-900 dark:text-gray-100">'.$categoryName.'</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">('.$typeLabel.')</span>
+                    </div>',
+                ];
+            } else {
+                $category = __('—');
+            }
+
+            // Mode: Get from meta or default to "Cash"
+            $meta = $transaction->meta ?? [];
+            $mode = $meta['mode'] ?? $meta['payment_mode'] ?? 'Cash';
+
+            // Amount: Format with color - green for income, red for expense
+            $amount = (float) $transaction->amount;
+            $isIncome = $transaction->type === 'income';
+            $amountColor = $isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+            // For expenses, display as negative
+            $displayAmount = $isIncome ? $amount : -abs($amount);
+            $formattedAmount = number_format($displayAmount, 2);
+
+            $amountHtml = '<span class="'.$amountColor.'">'.$formattedAmount.'</span>';
+
+            // Balance: Show new_balance
+            $balance = number_format((float) ($transaction->new_balance ?? 0), 2);
 
             return [
                 'id' => $transaction->id,
                 'name' => 'TXN-'.str_pad($transaction->id, 5, '0', STR_PAD_LEFT),
+                'model' => $transaction, // Include model instance for policy checks
                 'cells' => [
-                    $position,
-                    ucfirst($transaction->type),
-                    Str::upper($transaction->transaction_id ?? __('—')),
-                    number_format((float) $transaction->amount, 2),
-                    $transaction->category->name ?? __('—'),
-                    ucfirst($transaction->status ?? 'pending'),
-                    $transaction->date?->format('M j, Y'),
-                    Str::limit($transaction->description ?? __('—'), 50),
+                    $dateTime,
+                    $details,
+                    $category,
+                    $mode,
+                    ['html' => $amountHtml],
+                    $balance,
                 ],
                 'actions' => [
                     'view' => [
@@ -365,11 +438,10 @@ class AccountService
         }
     }
 
-
     public function getTransactionsByCategoryData(Account $account, array $filters = []): Collection
     {
         $query = Transaction::where('account_id', $account->id);
-        
+
         $this->applyFilters($query, $filters);
 
         return $query->whereNotNull('category_id')
@@ -398,12 +470,85 @@ class AccountService
 
     public function getCategories(Account $account): array
     {
-        return TransactionCategory::where('company_id', $account->company_id)
-            ->orderBy('name')
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $query = TransactionCategory::where('company_id', $account->company_id);
+
+        // Filter by user permissions if not super-admin
+        if (! $user->hasRole('super-admin')) {
+            $categoryTypes = [];
+            if ($user->can('create income')) {
+                $categoryTypes[] = 'income';
+            }
+            if ($user->can('create expense')) {
+                $categoryTypes[] = 'expense';
+            }
+
+            // If user has no permissions, return empty array
+            if (empty($categoryTypes)) {
+                return [];
+            }
+
+            $query->whereIn('type', $categoryTypes);
+        }
+
+        return $query->orderBy('name')
             ->get()
             ->mapWithKeys(static function (TransactionCategory $category): array {
                 return [
                     $category->id => $category->name.' ('.$category->type.')',
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
+     * Get categories for import with type information.
+     *
+     * @return array<int, array{id: int, name: string, type: string}>
+     */
+    public function getCategoriesForImport(Account $account): array
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        $query = TransactionCategory::where('company_id', $account->company_id);
+
+        // Filter by user permissions if not super-admin
+        if (! $user->hasRole('super-admin')) {
+            $categoryTypes = [];
+            if ($user->can('create income')) {
+                $categoryTypes[] = 'income';
+            }
+            if ($user->can('create expense')) {
+                $categoryTypes[] = 'expense';
+            }
+
+            // If user has no permissions, return empty array
+            if (empty($categoryTypes)) {
+                return [];
+            }
+
+            $query->whereIn('type', $categoryTypes);
+        }
+
+        return $query->orderBy('type')
+            ->orderBy('name')
+            ->get()
+            ->map(static function (TransactionCategory $category): array {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'type' => $category->type,
                 ];
             })
             ->toArray();
@@ -452,6 +597,42 @@ class AccountService
         ];
     }
 
+    /**
+     * Get type options filtered by user permissions.
+     *
+     * @return array<string, string>
+     */
+    public function getTypeOptionsForUser(): array
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            return [];
+        }
+
+        // Super admin gets all types
+        if ($user->hasRole('super-admin')) {
+            return $this->getTypeOptions();
+        }
+
+        $allowedTypes = [];
+
+        if ($user->can('create income')) {
+            $allowedTypes['income'] = __('Income');
+        }
+
+        if ($user->can('create expense')) {
+            $allowedTypes['expense'] = __('Expense');
+        }
+
+        if ($user->can('create transfer')) {
+            $allowedTypes['transfer'] = __('Transfer');
+        }
+
+        return $allowedTypes;
+    }
+
     public function getTransactionsForExport(Account $account, ?string $search, array $filters = []): \Illuminate\Support\Collection
     {
         return Transaction::where('account_id', $account->id)
@@ -488,5 +669,442 @@ class AccountService
             })
             ->latest()
             ->get();
+    }
+
+    /**
+     * Import transactions from CSV file.
+     *
+     * @return array{success: int, errors: int}
+     */
+    public function importTransactionsFromCsv(Account $account, \Illuminate\Http\UploadedFile $file): array
+    {
+        $transactionService = app(TransactionService::class);
+        $successCount = 0;
+        $errorCount = 0;
+        $errors = [];
+
+        // Read CSV file
+        $handle = fopen($file->getRealPath(), 'r');
+        if ($handle === false) {
+            throw new \RuntimeException(__('Failed to read CSV file.'));
+        }
+
+        // Skip BOM if present
+        $firstLine = fgets($handle);
+        if ($firstLine !== false && str_starts_with($firstLine, "\xEF\xBB\xBF")) {
+            rewind($handle);
+            fseek($handle, 3);
+        } else {
+            rewind($handle);
+        }
+
+        // Read header row
+        $headers = fgetcsv($handle);
+        if ($headers === false) {
+            fclose($handle);
+            throw new \RuntimeException(__('CSV file is empty or invalid.'));
+        }
+
+        // Normalize headers (remove BOM, trim, lowercase)
+        $headers = array_map(static fn ($header) => strtolower(trim(str_replace("\xEF\xBB\xBF", '', $header))), $headers);
+
+        // Map expected headers
+        $expectedHeaders = [
+            'transaction_id' => ['transaction id', 'transaction_id', 'id'],
+            'type' => ['type', 'transaction type'],
+            'amount' => ['amount'],
+            'category' => ['category', 'category name'],
+            'client' => ['client', 'client name'],
+            'status' => ['status'],
+            'date' => ['date', 'transaction date'],
+            'description' => ['description', 'notes'],
+        ];
+
+        $headerMap = [];
+        foreach ($expectedHeaders as $key => $variations) {
+            foreach ($variations as $variation) {
+                $index = array_search($variation, $headers, true);
+                if ($index !== false) {
+                    $headerMap[$key] = $index;
+                    break;
+                }
+            }
+        }
+
+        // Validate required headers
+        $requiredHeaders = ['type', 'amount', 'category', 'date'];
+        foreach ($requiredHeaders as $required) {
+            if (! isset($headerMap[$required])) {
+                fclose($handle);
+                throw new \RuntimeException(__('CSV file is missing required column: :column', ['column' => $required]));
+            }
+        }
+
+        // Get company ID
+        $companyId = $account->company_id;
+
+        // Cache categories and clients for performance
+        $categories = TransactionCategory::where('company_id', $companyId)
+            ->get()
+            ->keyBy(static fn ($cat) => strtolower(trim($cat->name)));
+
+        $clients = Client::where('company_id', $companyId)
+            ->get()
+            ->keyBy(static fn ($client) => strtolower(trim($client->name)));
+
+        $rowNumber = 1; // Start at 1 (header is row 0)
+
+        // Process each data row
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            // Skip empty rows
+            if (empty(array_filter($row))) {
+                continue;
+            }
+
+            try {
+                // Extract values based on header map
+                $transactionId = isset($headerMap['transaction_id']) ? trim($row[$headerMap['transaction_id']] ?? '') : '';
+                $type = strtolower(trim($row[$headerMap['type']] ?? ''));
+                $amount = trim($row[$headerMap['amount']] ?? '');
+                $categoryName = trim($row[$headerMap['category']] ?? '');
+                $clientName = isset($headerMap['client']) ? trim($row[$headerMap['client']] ?? '') : '';
+                $status = isset($headerMap['status']) ? strtolower(trim($row[$headerMap['status']] ?? 'pending')) : 'pending';
+                $date = trim($row[$headerMap['date']] ?? '');
+                $description = isset($headerMap['description']) ? trim($row[$headerMap['description']] ?? '') : '';
+
+                // Validate type
+                if (! in_array($type, ['income', 'expense'], true)) {
+                    throw new \RuntimeException(__('Invalid transaction type: :type. Must be "income" or "expense".', ['type' => $type]));
+                }
+
+                // Validate amount
+                if (empty($amount) || ! is_numeric($amount)) {
+                    throw new \RuntimeException(__('Invalid amount: :amount', ['amount' => $amount]));
+                }
+
+                $amount = (float) $amount;
+                if ($amount <= 0) {
+                    throw new \RuntimeException(__('Amount must be greater than zero.'));
+                }
+
+                // Find category by name
+                $category = $categories->get(strtolower($categoryName));
+                if (! $category) {
+                    throw new \RuntimeException(__('Category not found: :category', ['category' => $categoryName]));
+                }
+
+                // Validate category type matches transaction type
+                if ($category->type !== $type) {
+                    throw new \RuntimeException(__('Category :category is of type :catType but transaction is :transType', [
+                        'category' => $categoryName,
+                        'catType' => $category->type,
+                        'transType' => $type,
+                    ]));
+                }
+
+                // Find client by name (optional)
+                $clientId = null;
+                if (! empty($clientName)) {
+                    $client = $clients->get(strtolower($clientName));
+                    if ($client) {
+                        $clientId = $client->id;
+                    }
+                }
+
+                // Validate status
+                if (! in_array($status, ['pending', 'approved', 'rejected'], true)) {
+                    $status = 'pending';
+                }
+
+                // Validate date
+                if (empty($date)) {
+                    throw new \RuntimeException(__('Date is required.'));
+                }
+
+                try {
+                    $dateObj = \Carbon\Carbon::parse($date);
+                } catch (\Exception $e) {
+                    throw new \RuntimeException(__('Invalid date format: :date. Use YYYY-MM-DD format.', ['date' => $date]));
+                }
+
+                // Create transaction using TransactionService
+                $transactionData = [
+                    'company_id' => $companyId,
+                    'account_id' => $account->id,
+                    'transaction_category_id' => $category->id,
+                    'amount' => $amount,
+                    'date' => $dateObj->format('Y-m-d'),
+                    'description' => $description,
+                    'client_id' => $clientId,
+                    'transaction_id' => ! empty($transactionId) ? $transactionId : null,
+                ];
+
+                DB::transaction(static function () use ($transactionService, $transactionData, $status) {
+                    $transaction = $transactionService->recordTransaction($transactionData);
+                    // Update status if provided
+                    if ($status && in_array($status, ['pending', 'approved', 'rejected'], true)) {
+                        $transaction->update(['status' => $status]);
+                    }
+                });
+
+                $successCount++;
+            } catch (\Exception $e) {
+                $errorCount++;
+                $errors[] = __('Row :row: :message', ['row' => $rowNumber, 'message' => $e->getMessage()]);
+            }
+        }
+
+        fclose($handle);
+
+        return [
+            'success' => $successCount,
+            'errors' => $errorCount,
+            'error_messages' => $errors,
+        ];
+    }
+
+    /**
+     * Import transactions from Excel or CSV file.
+     *
+     * @return array{success: int, errors: int, error_messages: array}
+     */
+    public function importTransactionsFromExcel(Account $account, \Illuminate\Http\UploadedFile $file): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        // Use Excel reader for .xlsx, .xls files, CSV reader for .csv, .txt
+        if (in_array($extension, ['xlsx', 'xls'], true)) {
+            return $this->importTransactionsFromExcelFile($account, $file);
+        }
+
+        // Fallback to CSV import for backward compatibility
+        return $this->importTransactionsFromCsv($account, $file);
+    }
+
+    /**
+     * Import transactions from Excel file.
+     *
+     * @return array{success: int, errors: int, error_messages: array}
+     */
+    protected function importTransactionsFromExcelFile(Account $account, \Illuminate\Http\UploadedFile $file): array
+    {
+        $transactionService = app(TransactionService::class);
+        $successCount = 0;
+        $errorCount = 0;
+        $errors = [];
+
+        try {
+            $spreadsheet = IOFactory::load($file->getRealPath());
+            $sheet = $spreadsheet->getActiveSheet();
+            $highestRow = $sheet->getHighestRow();
+            $highestColumn = $sheet->getHighestColumn();
+
+            if ($highestRow < 2) {
+                throw new \RuntimeException(__('Excel file is empty or has no data rows.'));
+            }
+
+            // Read header row
+            $headers = [];
+            for ($col = 'A'; $col <= $highestColumn; $col++) {
+                $cellValue = $sheet->getCell($col.'1')->getValue();
+                $headers[] = $cellValue ? strtolower(trim((string) $cellValue)) : '';
+            }
+
+            // Map expected headers
+            $expectedHeaders = [
+                'transaction_id' => ['transaction id', 'transaction_id', 'id'],
+                'type' => ['type', 'transaction type'],
+                'amount' => ['amount'],
+                'category' => ['category', 'category name'],
+                'client' => ['client', 'client name'],
+                'status' => ['status'],
+                'date' => ['date', 'transaction date'],
+                'description' => ['description', 'notes'],
+            ];
+
+            $headerMap = [];
+            foreach ($expectedHeaders as $key => $variations) {
+                foreach ($variations as $variation) {
+                    $index = array_search($variation, $headers, true);
+                    if ($index !== false) {
+                        $headerMap[$key] = $index;
+                        break;
+                    }
+                }
+            }
+
+            // Validate required headers
+            $requiredHeaders = ['type', 'amount', 'category', 'date'];
+            foreach ($requiredHeaders as $required) {
+                if (! isset($headerMap[$required])) {
+                    throw new \RuntimeException(__('Excel file is missing required column: :column', ['column' => $required]));
+                }
+                // Convert index to column letter (A=0, B=1, etc.)
+                $headerMap[$required] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($headerMap[$required] + 1);
+            }
+
+            // Convert optional headers to column letters
+            foreach ($headerMap as $key => $index) {
+                if (! in_array($key, $requiredHeaders, true) && is_int($index)) {
+                    $headerMap[$key] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($index + 1);
+                }
+            }
+
+            // Get company ID
+            $companyId = $account->company_id;
+
+            // Cache categories and clients for performance
+            $categories = TransactionCategory::where('company_id', $companyId)
+                ->get()
+                ->keyBy(static fn ($cat) => strtolower(trim($cat->name)));
+
+            $clients = Client::where('company_id', $companyId)
+                ->get()
+                ->keyBy(static fn ($client) => strtolower(trim($client->name)));
+
+            // Process each data row
+            for ($row = 2; $row <= $highestRow; $row++) {
+                try {
+                    // Helper function to get cell value (calculated if formula, raw otherwise)
+                    $getCellValue = static function ($cell) {
+                        if ($cell->getDataType() === \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_FORMULA) {
+                            return $cell->getCalculatedValue();
+                        }
+
+                        return $cell->getValue();
+                    };
+
+                    // Extract values - use calculated value for formulas, raw value otherwise
+                    $transactionIdCell = isset($headerMap['transaction_id']) ? $sheet->getCell($headerMap['transaction_id'].$row) : null;
+                    $transactionId = $transactionIdCell ? trim((string) ($getCellValue($transactionIdCell) ?? '')) : '';
+
+                    $typeCell = $sheet->getCell($headerMap['type'].$row);
+                    $type = strtolower(trim((string) ($getCellValue($typeCell) ?? '')));
+
+                    $amountCell = $sheet->getCell($headerMap['amount'].$row);
+                    $amount = trim((string) ($getCellValue($amountCell) ?? ''));
+
+                    $categoryCell = $sheet->getCell($headerMap['category'].$row);
+                    $categoryName = trim((string) ($getCellValue($categoryCell) ?? ''));
+
+                    $clientCell = isset($headerMap['client']) ? $sheet->getCell($headerMap['client'].$row) : null;
+                    $clientName = $clientCell ? trim((string) ($getCellValue($clientCell) ?? '')) : '';
+
+                    $statusCell = isset($headerMap['status']) ? $sheet->getCell($headerMap['status'].$row) : null;
+                    $status = $statusCell ? strtolower(trim((string) ($getCellValue($statusCell) ?? 'pending'))) : 'pending';
+
+                    $dateCell = $sheet->getCell($headerMap['date'].$row);
+                    $dateValue = $getCellValue($dateCell);
+
+                    $descriptionCell = isset($headerMap['description']) ? $sheet->getCell($headerMap['description'].$row) : null;
+                    $description = $descriptionCell ? trim((string) ($getCellValue($descriptionCell) ?? '')) : '';
+
+                    // Handle Excel date format
+                    if ($dateValue instanceof \DateTime) {
+                        $date = $dateValue->format('Y-m-d');
+                    } elseif (is_numeric($dateValue)) {
+                        // Excel serial date
+                        $date = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($dateValue)->format('Y-m-d');
+                    } else {
+                        $date = trim((string) $dateValue);
+                    }
+
+                    // Skip empty rows
+                    if (empty($type) && empty($amount) && empty($categoryName) && empty($date)) {
+                        continue;
+                    }
+
+                    // Validate type
+                    if (! in_array($type, ['income', 'expense'], true)) {
+                        throw new \RuntimeException(__('Invalid transaction type: :type. Must be "income" or "expense".', ['type' => $type]));
+                    }
+
+                    // Validate amount
+                    if (empty($amount) || ! is_numeric($amount)) {
+                        throw new \RuntimeException(__('Invalid amount: :amount', ['amount' => $amount]));
+                    }
+
+                    $amount = (float) $amount;
+                    if ($amount <= 0) {
+                        throw new \RuntimeException(__('Amount must be greater than zero.'));
+                    }
+
+                    // Find category by name
+                    $category = $categories->get(strtolower($categoryName));
+                    if (! $category) {
+                        throw new \RuntimeException(__('Category not found: :category', ['category' => $categoryName]));
+                    }
+
+                    // Validate category type matches transaction type
+                    if ($category->type !== $type) {
+                        throw new \RuntimeException(__('Category :category is of type :catType but transaction is :transType', [
+                            'category' => $categoryName,
+                            'catType' => $category->type,
+                            'transType' => $type,
+                        ]));
+                    }
+
+                    // Find client by name (optional)
+                    $clientId = null;
+                    if (! empty($clientName)) {
+                        $client = $clients->get(strtolower($clientName));
+                        if ($client) {
+                            $clientId = $client->id;
+                        }
+                    }
+
+                    // Validate status
+                    if (! in_array($status, ['pending', 'approved', 'rejected'], true)) {
+                        $status = 'pending';
+                    }
+
+                    // Validate date
+                    if (empty($date)) {
+                        throw new \RuntimeException(__('Date is required.'));
+                    }
+
+                    try {
+                        $dateObj = \Carbon\Carbon::parse($date);
+                    } catch (\Exception $e) {
+                        throw new \RuntimeException(__('Invalid date format: :date. Use YYYY-MM-DD format.', ['date' => $date]));
+                    }
+
+                    // Create transaction using TransactionService
+                    $transactionData = [
+                        'company_id' => $companyId,
+                        'account_id' => $account->id,
+                        'transaction_category_id' => $category->id,
+                        'amount' => $amount,
+                        'date' => $dateObj->format('Y-m-d'),
+                        'description' => $description,
+                        'client_id' => $clientId,
+                        'transaction_id' => ! empty($transactionId) ? $transactionId : null,
+                    ];
+
+                    DB::transaction(static function () use ($transactionService, $transactionData, $status) {
+                        $transaction = $transactionService->recordTransaction($transactionData);
+                        // Update status if provided
+                        if ($status && in_array($status, ['pending', 'approved', 'rejected'], true)) {
+                            $transaction->update(['status' => $status]);
+                        }
+                    });
+
+                    $successCount++;
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    $errors[] = __('Row :row: :message', ['row' => $row, 'message' => $e->getMessage()]);
+                }
+            }
+        } catch (\Exception $e) {
+            throw new \RuntimeException(__('Failed to read Excel file: :message', ['message' => $e->getMessage()]));
+        }
+
+        return [
+            'success' => $successCount,
+            'errors' => $errorCount,
+            'error_messages' => $errors,
+        ];
     }
 }

@@ -163,6 +163,8 @@
                                 {{ __('Date Range') }}
                             </label>
                             <select
+                                id="account-date-range"
+                                name="date_range"
                                 x-model="dateRange"
                                 @change="updateDates()"
                                 class="w-full px-4 py-1.5 rounded-lg text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -489,6 +491,20 @@
             </section>
         </div>
 
+        {{-- Import Errors Display --}}
+        @if (session('import_errors'))
+            <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                <h3 class="mb-2 text-sm font-semibold text-red-800 dark:text-red-300">
+                    {{ __('Import Errors:') }}
+                </h3>
+                <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-400">
+                    @foreach (session('import_errors') as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         {{-- Transactions Table Section --}}
         <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -518,19 +534,69 @@
                             $exportUrl .= '?' . http_build_query($exportParams);
                         }
                     @endphp
-                    <x-button
-                        tag="a"
-                        href="{{ $exportUrl }}"
-                        class="w-full sm:w-auto"
-                    >
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        {{ __('Export CSV') }}
-                    </x-button>
+
+                    {{-- Import/Export Dropdown Menu --}}
+                    <div x-data="{ open: false }" class="relative w-full sm:w-auto">
+                        <button
+                            @click="open = !open"
+                            @click.away="open = false"
+                            class="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                        </button>
+
+                        <div
+                            x-show="open"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="transform opacity-0 scale-95"
+                            x-transition:enter-end="transform opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="transform opacity-100 scale-100"
+                            x-transition:leave-end="transform opacity-0 scale-95"
+                            class="absolute right-0 z-10 mt-2 w-full sm:w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 dark:ring-gray-700"
+                            style="display: none;"
+                        >
+                            <div class="py-1" role="menu" aria-orientation="vertical">
+                                <a
+                                    href="{{ route('accounts.download-sample-csv', $account) }}"
+                                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    role="menuitem"
+                                >
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    {{ __('Download Sample Excel') }}
+                                </a>
+                                <button
+                                    type="button"
+                                    @click="$dispatch('open-modal', { id: 'import-transactions-{{ $account->id }}' }); open = false"
+                                    class="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    role="menuitem"
+                                >
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    {{ __('Import Excel') }}
+                                </button>
+                                <a
+                                    href="{{ $exportUrl }}"
+                                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                                    role="menuitem"
+                                >
+                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    {{ __('Export CSV') }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <x-button
                         buttonType="button"
-                        class="w-full sm:w-auto"
+                        class="w-full sm:w-auto mt-3 sm:mt-0"
                         @click="$dispatch('open-modal', { id: 'create-transaction-{{ $account->id }}' })"
                     >
                         {{ __('Add Transaction') }}
@@ -563,6 +629,77 @@
         :clients="$clients"
         redirect-input="from_account"
     />
+
+    {{-- Import Transactions Modal --}}
+    <x-modal
+        id="import-transactions-{{ $account->id }}"
+        title="{{ __('Import Transactions from CSV') }}"
+        confirmText="{{ __('Import') }}"
+        cancelText="{{ __('Cancel') }}"
+        confirmColor="blue"
+    >
+        <form
+            method="POST"
+            action="{{ route('accounts.import-transactions', $account) }}"
+            enctype="multipart/form-data"
+            x-data
+            x-on:modal-confirm.window="if ($event.detail?.id === 'import-transactions-{{ $account->id }}') { $el.submit() }"
+        >
+            @csrf
+
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        {{ __('Download the sample Excel file with dropdown menus, fill it with your transaction data, and upload it here. The dropdowns will automatically show available categories, clients, and statuses based on your permissions.') }}
+                    </p>
+                </div>
+
+                <div>
+                    <label for="csv_file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        {{ __('Excel File') }}
+                        <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="file"
+                        id="csv_file"
+                        name="csv_file"
+                        accept=".xlsx,.xls,.csv,.txt"
+                        required
+                        class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300 dark:hover:file:bg-blue-900/50"
+                    >
+                    @error('csv_file')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4">
+                    <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                        {{ __('Excel Format Requirements:') }}
+                    </h4>
+                    <ul class="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                        <li>{{ __('Required columns: Type, Amount, Category, Date') }}</li>
+                        <li>{{ __('Optional columns: Transaction ID, Client, Status, Description') }}</li>
+                        <li>{{ __('Use the dropdown menus in the Excel file to select valid values') }}</li>
+                        <li>{{ __('Transaction ID: Optional custom identifier for the transaction') }}</li>
+                        <li>{{ __('Type dropdown: income, expense') }}</li>
+                        <li>{{ __('Category dropdown: dynamically filtered based on selected type') }}</li>
+                        <li>{{ __('Status dropdown: pending, approved, rejected (defaults to pending)') }}</li>
+                        <li>{{ __('Date format: YYYY-MM-DD (e.g., 2024-01-15)') }}</li>
+                        <li>{{ __('CSV files are also supported for backward compatibility') }}</li>
+                    </ul>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <a
+                        href="{{ route('accounts.download-sample-csv', $account) }}"
+                        class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                        {{ __('Download Sample Excel') }}
+                    </a>
+                </div>
+            </div>
+        </form>
+    </x-modal>
 
     @push('scripts')
         <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
