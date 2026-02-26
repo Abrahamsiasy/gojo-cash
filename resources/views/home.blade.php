@@ -7,9 +7,6 @@
     <meta name="description" content="CashApp — Professional expense and income tracking for companies. Categorize transactions, manage multiple accounts, and view monthly financial overviews in one place.">
     <title>CashApp — Expense Manager for Companies</title>
     @vite('resources/css/app.css')
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <script>
         function applyTheme() {
             const userPref = localStorage.getItem('darkMode');
@@ -26,16 +23,16 @@
         });
     </script>
     <style>
-        .font-dm-sans { font-family: 'DM Sans', system-ui, sans-serif; }
         .hero-gradient { background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #ecfdf5 100%); }
         .dark .hero-gradient { background: linear-gradient(135deg, #022c22 0%, #064e3b 50%, #022c22 100%); }
         .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
         .dark .card-hover:hover { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.2); }
+        a:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
     </style>
 </head>
 
-<body class="font-dm-sans bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 antialiased">
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-800 dark:text-gray-200 antialiased">
     <div class="min-h-screen flex flex-col">
         <!-- Navigation -->
         <nav class="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-800/60">
@@ -63,15 +60,15 @@
 
         <!-- Hero -->
         <section class="hero-gradient border-b border-gray-200/60 dark:border-gray-800/60">
-            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20">
                 <div class="text-center max-w-2xl mx-auto">
                     <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-[1.15] tracking-tight">
                         Know exactly what your business earns — and spends — every month.
                     </h1>
-                    <p class="text-xl text-gray-600 dark:text-gray-400 mb-10 leading-relaxed">
+                    <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
                         Simple expense tracking for companies. Categorize income and expenses, track multiple accounts, and see your finances at a glance.
                     </p>
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-10">
                         <a href="{{ route('register') }}" class="inline-flex items-center justify-center gap-2 bg-gray-900 dark:bg-emerald-500 hover:bg-gray-800 dark:hover:bg-emerald-400 text-white px-8 py-4 rounded-xl text-base font-semibold transition-all shadow-xl shadow-gray-900/20 dark:shadow-emerald-500/30 hover:shadow-2xl">
                             Get Started
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +79,7 @@
                             Sign In
                         </a>
                     </div>
-                    <ul class="text-left max-w-md mx-auto space-y-4 text-gray-600 dark:text-gray-400">
+                    <ul class="text-left max-w-md mx-auto space-y-3 text-gray-600 dark:text-gray-400">
                         <li class="flex items-center gap-3">
                             <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-bold">✓</span>
                             <span>Custom categories: Salary, Sales, Rent, Software, Travel</span>
@@ -105,7 +102,7 @@
         </section>
 
         <!-- Features -->
-        <section class="py-20 sm:py-24">
+        <section class="py-16 sm:py-20">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="card-hover p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -152,10 +149,10 @@
         </section>
 
         <!-- Why CashApp -->
-        <section class="py-16 border-t border-gray-200 dark:border-gray-800">
+        <section class="py-12 border-t border-gray-200 dark:border-gray-800">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="p-10 rounded-3xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-8 text-center">Why CashApp</h2>
+                <div class="p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-6 text-center">Why CashApp</h2>
                     <ul class="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto text-gray-600 dark:text-gray-400">
                         <li class="flex items-center gap-4">
                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">•</span>
@@ -179,25 +176,25 @@
         </section>
 
         <!-- Testimonials -->
-        <section class="py-20 sm:py-24">
+        <section class="py-16 sm:py-20">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <p class="text-center text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-2 uppercase tracking-widest">Trusted by businesses worldwide</p>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-12 text-center">What our users say</h2>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-10 text-center">What our users say</h2>
                 <div class="grid sm:grid-cols-2 gap-6">
-                    <blockquote class="card-hover p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <p class="text-gray-600 dark:text-gray-400 mb-6 text-lg leading-relaxed">"Reduced my monthly bookkeeping time significantly. Clear and straightforward."</p>
+                    <blockquote class="card-hover p-6 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4 text-base leading-relaxed">"Reduced my monthly bookkeeping time significantly. Clear and straightforward."</p>
                         <footer class="text-sm font-semibold text-gray-900 dark:text-white">— Mark, E-commerce</footer>
                     </blockquote>
-                    <blockquote class="card-hover p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <p class="text-gray-600 dark:text-gray-400 mb-6 text-lg leading-relaxed">"Replaced spreadsheets with a single dashboard. I now have accurate monthly numbers."</p>
+                    <blockquote class="card-hover p-6 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4 text-base leading-relaxed">"Replaced spreadsheets with a single dashboard. I now have accurate monthly numbers."</p>
                         <footer class="text-sm font-semibold text-gray-900 dark:text-white">— Priya, Freelance Agency</footer>
                     </blockquote>
-                    <blockquote class="card-hover p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <p class="text-gray-600 dark:text-gray-400 mb-6 text-lg leading-relaxed">"Visibility into which clients actually contribute to revenue. Invaluable."</p>
+                    <blockquote class="card-hover p-6 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4 text-base leading-relaxed">"Visibility into which clients actually contribute to revenue. Invaluable."</p>
                         <footer class="text-sm font-semibold text-gray-900 dark:text-white">— Lisa, Marketing Consultant</footer>
                     </blockquote>
-                    <blockquote class="card-hover p-8 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
-                        <p class="text-gray-600 dark:text-gray-400 mb-6 text-lg leading-relaxed">"Tracking rent, salaries, and vendor payments per project simplified our workflow."</p>
+                    <blockquote class="card-hover p-6 rounded-2xl bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 shadow-sm">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4 text-base leading-relaxed">"Tracking rent, salaries, and vendor payments per project simplified our workflow."</p>
                         <footer class="text-sm font-semibold text-gray-900 dark:text-white">— Ahmed, Construction</footer>
                     </blockquote>
                 </div>
@@ -205,7 +202,7 @@
         </section>
 
         <!-- CTA -->
-        <section class="py-20 border-t border-gray-200 dark:border-gray-800">
+        <section class="py-16 border-t border-gray-200 dark:border-gray-800">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <p class="text-gray-600 dark:text-gray-400 mb-6 text-lg">Simple. Professional. Built for clarity.</p>
                 <a href="{{ route('register') }}" class="inline-flex items-center gap-2 bg-gray-900 dark:bg-emerald-500 hover:bg-gray-800 dark:hover:bg-emerald-400 text-white px-8 py-4 rounded-xl text-base font-semibold transition-all shadow-lg">
@@ -216,6 +213,13 @@
                 </a>
             </div>
         </section>
+
+        <!-- Footer -->
+        <footer class="py-8 border-t border-gray-200 dark:border-gray-800">
+            <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">© {{ date('Y') }} CashApp. All rights reserved.</p>
+            </div>
+        </footer>
     </div>
 </body>
 
